@@ -7,11 +7,20 @@ var RUNTIME_CACHE = 'regia-tempi-runtime-' + CACHE_VERSION;
 var PRECACHE = ['./', './index.html', './app.css', './manifest.webmanifest', './icon.svg'];
 // Risorse esterne da tenere in cache: font e pdf.js.
 var RUNTIME_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
+// pdf.js viene scaricato subito, così anche l'import dei PDF funziona offline.
+var PDFJS_FILES = [
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'
+];
 var NET_TIMEOUT_MS = 4000;
 
 self.addEventListener('install', function(event){
   event.waitUntil(
     caches.open(APP_CACHE).then(function(cache){ return cache.addAll(PRECACHE); })
+      .then(function(){
+        // Facoltativo: se il CDN non risponde l'installazione prosegue comunque.
+        return caches.open(RUNTIME_CACHE).then(function(cache){ return cache.addAll(PDFJS_FILES); }).catch(function(){});
+      })
       .then(function(){ return self.skipWaiting(); })
   );
 });
