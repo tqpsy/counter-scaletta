@@ -210,7 +210,7 @@
       <!-- Import AI -->
       <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
         <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa scaletta con AI</h2>
-        <p class="text-xs text-gray-500 mb-3 leading-relaxed">Carica una foto o un PDF della scaletta cartacea: l'AI la legge (Vision OCR) e la trasforma in righe modificabili.</p>
+        <p class="text-xs text-gray-500 mb-3 leading-relaxed">Carica una foto o un PDF della scaletta: i copioni PDF con orari e durate vengono letti direttamente, senza AI né chiave; per foto e altri formati serve la chiave AI. Le righe restano modificabili.</p>
 
         <label for="import-file-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-6 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
           <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L21 15M4 8h.01M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
@@ -876,7 +876,7 @@ function updateImportProviderLabel(){
     btnLabel.textContent = 'Modifica chiave API';
   } else {
     el.textContent = 'Nessuna chiave API configurata';
-    hint.textContent = 'Per leggere la scaletta con l\'AI inserisci la tua chiave personale OpenAI, Anthropic o Google (Gemini). Resta salvata solo su questo dispositivo.';
+    hint.textContent = 'Per le foto e i PDF senza orari leggibili inserisci la tua chiave personale OpenAI, Anthropic o Google (Gemini). Resta salvata solo su questo dispositivo.';
     box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-amber-200 bg-amber-50 text-amber-900';
     btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-accent hover:bg-accent-soft text-ink';
     btnLabel.textContent = 'Inserisci la tua chiave API';
@@ -1615,13 +1615,134 @@ function showImportWarning(msg){
   statusEl.classList.remove('hidden');
 }
 
+/* Import locale, senza AI: copioni PDF con orario e durata nella colonna di sinistra
+   (es. "21.14’ (3’)", "22 25’", "21 (14’)"). Funziona solo se il PDF ha il testo selezionabile. */
+var SCRIPT_TIME_RE = /^(\d{1,2})(?:[.:,\s’'`´]*(\d{2}))?\s*[’'`´]?\s*(?:\(\s*(\d{1,3})\s*[’'`´]?\s*\))?/;
+var SCRIPT_DUR_RE = /^\(\s*(\d{1,3})\s*[’'`´]?\s*\)/;
+function pdfTextLines(pdf){
+  var pages = [];
+  var chain = Promise.resolve();
+  for(var n = 1; n <= pdf.numPages; n++){
+    (function(n){
+      chain = chain.then(function(){
+        return pdf.getPage(n).then(function(page){
+          var width = page.getViewport({ scale: 1 }).width;
+          return page.getTextContent().then(function(tc){
+            // Righe: pezzi di testo con la stessa altezza, separati tra colonna sinistra e corpo.
+            var lines = [];
+            tc.items.forEach(function(it){
+              if(!it.str || !it.str.trim()) return;
+              var x = it.transform[4], y = it.transform[5];
+              var left = x < width * 0.11;
+              var line = null;
+              for(var i = 0; i < lines.length; i++){
+                if(lines[i].left === left && Math.abs(lines[i].y - y) < 3){ line = lines[i]; break; }
+              }
+              if(!line){ line = { y: y, x: x, left: left, parts: [] }; lines.push(line); }
+              line.x = Math.min(line.x, x);
+              line.parts.push({ x: x, str: it.str });
+            });
+            lines.forEach(function(l){
+              l.text = l.parts.sort(function(a, b){ return a.x - b.x; }).map(function(p){ return p.str; }).join(' ').replace(/\s+/g, ' ').trim();
+            });
+            lines.sort(function(a, b){ return b.y - a.y; });
+            pages.push(lines);
+          });
+        });
+      });
+    })(n);
+  }
+  return chain.then(function(){ return pages; });
+}
+function shortTitle(text){
+  var t = text.replace(/\s+/g, ' ').trim();
+  var dot = t.search(/[.!?](\s|$)/);
+  if(dot > 10) t = t.slice(0, dot);
+  if(t.length > 70){ t = t.slice(0, 70).replace(/\s+\S*$/, '') + '…'; }
+  return t;
+}
+function parseScriptPages(pages){
+  var blocks = [];
+  pages.forEach(function(lines){
+    lines.forEach(function(line, idx){
+      if(!line.left) return;
+      var m = SCRIPT_TIME_RE.exec(line.text);
+      if(!m) return;
+      var h = parseInt(m[1], 10), min = m[2] ? parseInt(m[2], 10) : 0;
+      var dur = m[3] ? parseInt(m[3], 10) : null;
+      var rest = line.text.slice(m[0].length).trim();
+      if(dur === null){
+        // La durata può stare sulla riga sotto, sempre nella colonna di sinistra.
+        var next = lines.slice(idx + 1).filter(function(l){ return l.left; })[0];
+        var dm = next && next.y > line.y - 30 ? SCRIPT_DUR_RE.exec(next.text) : null;
+        if(dm) dur = parseInt(dm[1], 10);
+      }
+      // Serve almeno "HH MM" o "HH (durata)", altrimenti è un elenco numerato.
+      if(h > 23 || min > 59 || (!m[2] && dur === null)) return;
+      var title = rest;
+      if(!title){
+        // Il corpo del blocco parte all'altezza dell'orario (o poco sopra, se la cella ha un margine).
+        var body = lines.filter(function(l){ return !l.left && l.y <= line.y + 16; });
+        var text = '';
+        for(var i = 0; i < body.length && text.length < 40; i++){
+          text += (text ? ' – ' : '') + body[i].text.replace(/[.!?]$/, '');
+        }
+        title = text;
+      }
+      blocks.push({ start: h * 60 + min, duration: dur, speaker: shortTitle(title || 'Blocco delle ' + m[1] + ':' + (m[2] || '00')) });
+    });
+  });
+  blocks.forEach(function(b, i){
+    if(b.duration === null){
+      var next = blocks[i + 1];
+      var diff = next ? next.start - b.start : 0;
+      b.duration = diff > 0 && diff < 180 ? diff : 5;
+    }
+  });
+  return blocks.map(function(b){
+    return {
+      speaker: b.speaker,
+      start: ('0' + Math.floor(b.start / 60)).slice(-2) + ':' + ('0' + (b.start % 60)).slice(-2),
+      duration: b.duration,
+      type: /\b(video|sigla|pausa|cambio palco|intervallo)\b/i.test(b.speaker) ? 'fixed' : 'flex'
+    };
+  });
+}
+function parseScriptPdf(file){
+  if(!window.pdfjsLib) return Promise.resolve([]);
+  try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){}
+  return file.arrayBuffer().then(function(buf){
+    return window.pdfjsLib.getDocument({ data: buf }).promise;
+  }).then(pdfTextLines).then(parseScriptPages);
+}
+
 function runExtraction(){
   if(!pendingFile) return;
-  if(!settings.apiKey){ toast('Configura prima la chiave API nelle impostazioni.', 'error'); openSettingsModal(); return; }
-  setImportLoading(true);
-  var warnings = [];
   var file = pendingFile;
   var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  setImportLoading(true);
+  var local = isPdf ? parseScriptPdf(file).catch(function(err){ console.error(err); return []; }) : Promise.resolve([]);
+  local.then(function(items){
+    // Almeno due blocchi con orario: il copione è stato letto senza AI, nessuna chiave necessaria.
+    if(items.length >= 2){
+      applyImportedItems(items);
+      toast(items.length + ' interventi letti dal PDF (senza AI).', 'success');
+      document.getElementById('import-status').classList.add('hidden');
+      setImportLoading(false);
+      return;
+    }
+    if(!settings.apiKey){
+      setImportLoading(false);
+      toast(isPdf ? 'In questo PDF non ho trovato orari da leggere da solo: serve la chiave API per l\'AI.' : 'Per le immagini serve la chiave API nelle impostazioni.', 'error');
+      openSettingsModal();
+      return;
+    }
+    aiExtraction(file, isPdf);
+  });
+}
+
+function aiExtraction(file, isPdf){
+  var warnings = [];
   var direct = !isPdf || file.size > PDF_DIRECT_MAX_BYTES ? Promise.resolve(null) : countPdfPages(file).then(function(pages){
     if(pages > PDF_DIRECT_MAX_PAGES) return null;
     // Una sola richiesta per tutto il PDF: nessuna pagina persa e una sola richiesta sulla quota.
