@@ -54,6 +54,28 @@
   .stage-timer-size { font-size: clamp(4.5rem, 17vw, 13rem); line-height: 1; }
   .hidden-important { display: none !important; }
   #import-panel > summary::-webkit-details-marker { display: none; }
+  /* Scaletta sul telefono: ogni riga della tabella diventa una scheda. */
+  @media (max-width: 767px) {
+    #schedule-table, #schedule-tbody { display: block; min-width: 0; }
+    #schedule-table thead { display: none; }
+    #schedule-tbody tr[data-id] {
+      display: grid; grid-template-columns: 6.25rem 1fr auto; align-items: center; gap: 6px 10px;
+      grid-template-areas: "num name name" "type dur start" "status eff act";
+      padding: 12px 14px;
+    }
+    #schedule-tbody tr[data-id] > td { display: block; padding: 0; min-width: 0; }
+    #schedule-tbody td.c-num { grid-area: num; }
+    #schedule-tbody td.c-type { grid-area: type; }
+    #schedule-tbody td.c-name { grid-area: name; }
+    #schedule-tbody td.c-dur { grid-area: dur; }
+    #schedule-tbody td.c-start { grid-area: start; text-align: right; }
+    #schedule-tbody td.c-status { grid-area: status; }
+    #schedule-tbody td.c-eff { grid-area: eff; }
+    #schedule-tbody td.c-act { grid-area: act; }
+    #schedule-tbody td.c-act > div { opacity: 1; }
+    #schedule-tbody td.c-name input { font-size: 15px; }
+    #schedule-tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #9ca3af; }
+  }
 </style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
@@ -174,13 +196,13 @@
           </div>
         </div>
         <div class="overflow-x-auto">
-          <table class="w-full text-left border-collapse min-w-[720px]">
+          <table id="schedule-table" class="w-full text-left border-collapse min-w-[720px]">
             <thead>
               <tr class="text-[11px] uppercase tracking-wide text-gray-400 border-b border-gray-100">
                 <th class="px-3 py-2 font-medium w-8">#</th>
                 <th class="px-3 py-2 font-medium">Tipo</th>
                 <th class="px-3 py-2 font-medium">Relatore / Titolo</th>
-                <th class="px-3 py-2 font-medium">Durata</th>
+                <th class="px-3 py-2 font-medium">Durata <span class="normal-case tracking-normal">(h.mm.ss)</span></th>
                 <th class="px-3 py-2 font-medium">Orario previsto</th>
                 <th class="px-3 py-2 font-medium">Stato</th>
                 <th class="px-3 py-2 font-medium">Tempo effettivo</th>
@@ -604,6 +626,31 @@ function formatHMS(totalSeconds){
   var sec = s%60;
   return pad2(h) + ':' + pad2(m) + ':' + pad2(sec);
 }
+// Durate: salvate in minuti (anche frazionari), mostrate e inserite come ore.minuti.secondi.
+function formatDuration(minutes){
+  var s = Math.max(0, Math.round(minutes * 60));
+  return Math.floor(s/3600) + '.' + pad2(Math.floor((s%3600)/60)) + '.' + pad2(s%60);
+}
+// Accetta "1.05.30", "1:05:30", "20.30" (minuti.secondi) o "20" (minuti); separatori . : , o spazio.
+function parseDuration(text){
+  var parts = String(text || '').trim().split(/[.:,\s]+/);
+  if(parts.length === 0 || parts.length > 3 || parts.some(function(p){ return !/^\d+$/.test(p); })) return null;
+  var n = parts.map(function(p){ return parseInt(p, 10); });
+  var sec = parts.length === 3 ? n[0]*3600 + n[1]*60 + n[2] : (parts.length === 2 ? n[0]*60 + n[1] : n[0]*60);
+  return sec > 0 ? sec / 60 : null;
+}
+// "15 min" per i minuti interi, altrimenti "2:30" o "1:05:30".
+function durationLabel(minutes){
+  var s = Math.max(0, Math.round(minutes * 60));
+  if(s % 60 === 0) return (s / 60) + ' min';
+  return s >= 3600 ? formatHMS(s) : pad2(Math.floor(s/60)) + ':' + pad2(s%60);
+}
+// Orario del giorno da secondi: HH:MM, con i secondi solo se non sono zero.
+function secondsToClock(totalSeconds){
+  var s = ((Math.round(totalSeconds) % 86400) + 86400) % 86400;
+  var out = pad2(Math.floor(s/3600)) + ':' + pad2(Math.floor((s%3600)/60));
+  return s % 60 ? out + ':' + pad2(s%60) : out;
+}
 function uid(){ return 'it_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
 function nowSecondsSinceMidnight(){
   var d = new Date();
@@ -795,8 +842,9 @@ function updateItemField(idx, field, value){
   if(!it) return;
   if(field === 'speaker'){ it.speaker = value || 'Intervento senza nome'; }
   if(field === 'duration'){
-    var v = parseFloat(value);
-    it.duration = (isNaN(v) || v <= 0) ? 1 : v;
+    var v = parseDuration(value);
+    if(v === null){ toast('Durata non valida: usa ore.minuti.secondi, per esempio 0.20.00 o 1.05.30.', 'error'); }
+    else { it.duration = v; }
   }
   if(field === 'type'){ it.type = value === 'fixed' ? 'fixed' : 'flex'; }
   broadcastState();
@@ -950,7 +998,7 @@ function renderDashboard(){
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
     typeBadgeEl.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ' + (cur.type === 'flex' ? 'bg-sky-400/15 text-sky-300' : 'bg-violet-400/15 text-violet-300');
     var nextItem = state.schedule[state.currentIndex+1];
-    nextEl.textContent = nextItem ? (nextItem.speaker + ' · ' + Math.round(nextItem.duration) + ' min') : 'Ultimo intervento';
+    nextEl.textContent = nextItem ? (nextItem.speaker + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento';
     plannedEl.textContent = 'Durata pianificata: ' + formatSecondsSigned(cur.duration*60);
   }
 
@@ -1034,14 +1082,14 @@ function patchScheduleRow(tr, it, idx, v){
   var speakerInput = cells[2].firstElementChild;
   if(document.activeElement !== speakerInput && speakerInput.value !== it.speaker){ speakerInput.value = it.speaker; }
   var durationInput = cells[3].firstElementChild;
-  var dur = String(Math.round(it.duration));
+  var dur = formatDuration(it.duration);
   if(document.activeElement !== durationInput && durationInput.value !== dur){ durationInput.value = dur; }
   cells[4].textContent = v.plannedStart;
   var statusSpan = cells[5].firstElementChild;
   statusSpan.textContent = v.statusLabel;
   statusSpan.className = 'inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + v.statusClass;
   cells[6].textContent = v.effTime;
-  cells[6].className = 'px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
+  cells[6].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
 }
 
 function renderScheduleTable(){
@@ -1050,10 +1098,10 @@ function renderScheduleTable(){
     tbody.innerHTML = '<tr><td colspan="8" class="text-center text-sm text-gray-400 py-10 px-4">Nessun intervento in scaletta. Importa una scaletta con l\'AI oppure aggiungi una riga manualmente.</td></tr>';
     return;
   }
-  var cum = hhmmToMinutes(state.eventStart);
+  var cum = hhmmToMinutes(state.eventStart) * 60;
   var views = state.schedule.map(function(it, idx){
-    var v = scheduleRowView(it, idx, minutesToHHMM(cum));
-    cum += it.duration;
+    var v = scheduleRowView(it, idx, secondsToClock(cum));
+    cum += it.duration * 60;
     return v;
   });
 
@@ -1077,22 +1125,22 @@ function renderScheduleTable(){
     var effTime = v.effTime, effClass = v.effClass, rowBg = v.rowBg, typeBtnClass = v.typeBtnClass;
     return '' +
       '<tr class="' + rowBg + ' border-b border-gray-100 last:border-0 group" data-idx="' + idx + '" data-id="' + escapeHtml(it.id) + '">' +
-        '<td class="px-3 py-2.5 text-sm text-gray-400 tabular-nums">' + (idx+1) + '</td>' +
-        '<td class="px-3 py-2.5">' +
+        '<td class="c-num px-3 py-2.5 text-sm text-gray-400 tabular-nums">' + (idx+1) + '</td>' +
+        '<td class="c-type px-3 py-2.5">' +
           '<button type="button" data-action="toggle-type" data-idx="' + idx + '" class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap ' + typeBtnClass + '">' +
             v.typeLabel +
           '</button>' +
         '</td>' +
-        '<td class="px-3 py-2.5 min-w-[160px]">' +
+        '<td class="c-name px-3 py-2.5 min-w-[160px]">' +
           '<input type="text" value="' + escapeHtml(it.speaker) + '" data-action="edit-speaker" data-idx="' + idx + '" class="w-full bg-transparent text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />' +
         '</td>' +
-        '<td class="px-3 py-2.5 whitespace-nowrap">' +
-          '<input type="number" min="1" step="1" value="' + Math.round(it.duration) + '" data-action="edit-duration" data-idx="' + idx + '" class="w-14 bg-transparent text-sm tabular-nums text-gray-700 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" /> min' +
+        '<td class="c-dur px-3 py-2.5 whitespace-nowrap" data-label="Durata">' +
+          '<input type="text" inputmode="decimal" autocomplete="off" value="' + formatDuration(it.duration) + '" placeholder="h.mm.ss" title="Durata in ore.minuti.secondi (es. 0.20.00)" data-action="edit-duration" data-idx="' + idx + '" class="w-20 bg-transparent text-sm tabular-nums text-gray-700 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />' +
         '</td>' +
-        '<td class="px-3 py-2.5 text-sm text-gray-500 tabular-nums">' + plannedStart + '</td>' +
-        '<td class="px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + statusClass + '">' + statusLabel + '</span></td>' +
-        '<td class="px-3 py-2.5 text-sm tabular-nums ' + effClass + '" data-eff="' + idx + '">' + effTime + '</td>' +
-        '<td class="px-3 py-2.5">' +
+        '<td class="c-start px-3 py-2.5 text-sm text-gray-500 tabular-nums" data-label="Inizio">' + plannedStart + '</td>' +
+        '<td class="c-status px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + statusClass + '">' + statusLabel + '</span></td>' +
+        '<td class="c-eff px-3 py-2.5 text-sm tabular-nums ' + effClass + '" data-eff="' + idx + '" data-label="Effettivo">' + effTime + '</td>' +
+        '<td class="c-act px-3 py-2.5">' +
           '<div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">' +
             '<button type="button" data-action="select-current" data-idx="' + idx + '" title="Seleziona come attuale" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">' + targetIconSVG + '</button>' +
             '<button type="button" data-action="move-up" data-idx="' + idx + '" title="Sposta su" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">' + chevronUpSVG + '</button>' +
@@ -1128,7 +1176,7 @@ function tickDashboard(){
     if(effCell){
       var elapsed = getItemElapsedSeconds(state.currentIndex);
       effCell.textContent = formatSecondsSigned(elapsed);
-      effCell.className = 'px-3 py-2.5 text-sm tabular-nums ' + (elapsed > cur.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500');
+      effCell.className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + (elapsed > cur.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500');
     }
   }
   updateDelayPill(getTotalDelaySeconds());
@@ -1199,7 +1247,7 @@ function tickStage(){
   timerEl.textContent = formatSecondsSigned(rem);
   timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums ' + colorClass + blink;
   var nextItem = state.schedule[state.currentIndex+1];
-  nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ' + Math.round(nextItem.duration) + ' min') : 'Ultimo intervento della scaletta';
+  nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta';
 }
 
 /* ---------------------------------------------------------------- */
