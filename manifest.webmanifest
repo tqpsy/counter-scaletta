@@ -1,0 +1,14 @@
+{
+  "name": "Regia Tempi",
+  "short_name": "Regia Tempi",
+  "description": "Gestione dei tempi dei relatori in eventi live, con Stage Display sincronizzato.",
+  "lang": "it",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#10131A",
+  "theme_color": "#10131A",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ]
+}
