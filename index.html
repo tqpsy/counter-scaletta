@@ -127,10 +127,10 @@
         <p id="onair-planned" class="text-xs text-white/40 mb-5"></p>
 
         <div class="flex flex-wrap items-center gap-2 mb-5">
-          <button id="play-btn" type="button" disabled class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
+          <button id="play-btn" type="button" disabled title="Play (barra spaziatrice)" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play
           </button>
-          <button id="pause-btn" type="button" class="hidden inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
+          <button id="pause-btn" type="button" title="Pausa (barra spaziatrice)" class="hidden inline-flex items-center gap-2 bg-amber-400 hover:bg-amber-300 text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg> Pausa
           </button>
           <button id="reset-btn" type="button" disabled class="inline-flex items-center gap-2 bg-white/10 hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed text-white font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
@@ -629,7 +629,9 @@ function getItemElapsedSeconds(idx){
 function getRemainingSeconds(idx){
   var item = state.schedule[idx];
   if(!item) return 0;
-  return item.duration * 60 - getItemElapsedSeconds(idx);
+  var rem = item.duration * 60 - getItemElapsedSeconds(idx);
+  // I blocchi fissi non vanno mai in negativo: a zero si passa al successivo.
+  return item.type === 'fixed' ? Math.max(0, rem) : rem;
 }
 function getTotalDelaySeconds(){
   var total = 0;
@@ -710,6 +712,28 @@ function actionNext(){
   } else {
     state.running = false;
     state.activeStartEpoch = null;
+    state.currentIndex = state.schedule.length;
+    toast('Scaletta completata.', 'success');
+  }
+  broadcastState();
+  renderDashboard();
+}
+// Blocco fisso arrivato a zero: si chiude alla sua durata esatta e ci si posiziona
+// sull'intervento successivo, in pausa, in attesa di Play.
+function autoAdvanceFixed(){
+  if(!state.running) return;
+  var cur = state.schedule[state.currentIndex];
+  if(!cur || cur.type !== 'fixed') return;
+  if(cur.duration * 60 - getItemElapsedSeconds(state.currentIndex) > 0) return;
+  cur.accumulatedSeconds = cur.duration * 60;
+  cur.status = 'done';
+  state.running = false;
+  state.activeStartEpoch = null;
+  if(state.currentIndex + 1 < state.schedule.length){
+    state.currentIndex += 1;
+    state.schedule[state.currentIndex].status = 'active';
+    toast('"' + cur.speaker + '" concluso. Premi Play (o la barra spaziatrice) per avviare il successivo.', 'info');
+  } else {
     state.currentIndex = state.schedule.length;
     toast('Scaletta completata.', 'success');
   }
@@ -1113,6 +1137,7 @@ function renderScheduleTable(){
 
 function tickDashboard(){
   if(isStage) return;
+  autoAdvanceFixed();
   var clockEl = document.getElementById('header-clock');
   if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
   var total = state.schedule.length;
@@ -1977,6 +2002,18 @@ function wireEvents(){
   document.getElementById('settings-close-btn').addEventListener('click', closeSettingsModal);
   document.addEventListener('keydown', function(e){
     if(e.key === 'Escape' && !document.getElementById('settings-modal').classList.contains('hidden')){ closeSettingsModal(); }
+  });
+  // Barra spaziatrice = Play/Pausa ovunque tranne mentre si scrive, anche se il focus è su un
+  // pulsante (così dopo aver cliccato Avanti o Elimina lo spazio non li ripete).
+  document.addEventListener('keydown', function(e){
+    if(e.code !== 'Space' && e.key !== ' ') return;
+    if(e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
+    var t = e.target;
+    if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    if(!document.getElementById('settings-modal').classList.contains('hidden')) return;
+    e.preventDefault();
+    if(state.running){ actionPause(); }
+    else if(!document.getElementById('play-btn').disabled){ actionPlay(); }
   });
   document.getElementById('settings-modal').addEventListener('click', function(e){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
