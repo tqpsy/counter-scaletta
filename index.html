@@ -1233,6 +1233,10 @@ function downscaleDataURL(dataUrl, maxSide, mime, quality){
     img.src = dataUrl;
   });
 }
+var PDF_MAX_PAGES = 40;
+// Pagine inviate in ogni richiesta: abbastanza contesto per i blocchi che proseguono
+// sulla pagina dopo, poche richieste per non superare i limiti al minuto delle chiavi gratuite.
+var PAGES_PER_REQUEST = 4;
 function pdfToImages(file){
   if(!window.pdfjsLib){ return Promise.reject(new Error('Libreria di lettura PDF non disponibile (verifica la connessione internet).')); }
   try{
@@ -1241,8 +1245,9 @@ function pdfToImages(file){
   return file.arrayBuffer().then(function(arrayBuffer){
     return window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   }).then(function(pdf){
-    var maxPages = Math.min(pdf.numPages, 5);
+    var maxPages = Math.min(pdf.numPages, PDF_MAX_PAGES);
     var images = [];
+    images.totalPages = pdf.numPages;
     var chain = Promise.resolve();
     for(var i=1; i<=maxPages; i++){
       (function(pageNum){
@@ -1272,8 +1277,13 @@ function fileToImages(file){
   return Promise.reject(new Error('Formato file non supportato. Usa un\'immagine (JPG, PNG) oppure un PDF.'));
 }
 
-function buildExtractionPrompt(){
-  return 'Analizza l\'immagine allegata: è la scaletta (rundown) di un evento dal vivo. Individua ogni riga/blocco del programma. Per ciascuno restituisci: "speaker" (nome del relatore oppure il titolo del blocco se non è una persona), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata stimata in minuti, numero intero, deducila dalla scaletta o dal contesto se non è esplicita), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","start":"09:00","duration":15,"type":"flex"}]}';
+function buildExtractionPrompt(firstPage, lastPage, totalPages){
+  var pageInfo = '';
+  if(totalPages > 1){
+    pageInfo = (firstPage === lastPage ? ' L\'immagine è la pagina ' + firstPage : ' Le immagini sono le pagine da ' + firstPage + ' a ' + lastPage) + ' di ' + totalPages + ' della scaletta, in ordine: estrai solo i blocchi che INIZIANO in queste pagine.' +
+      (firstPage > 1 ? ' Il testo in cima alla prima immagine senza un proprio orario o titolo è la continuazione di un blocco della pagina precedente: non crearne una riga. Se nessun blocco inizia in queste pagine rispondi {"items":[]}.' : '');
+  }
+  return 'Analizza le immagini allegate: sono la scaletta (rundown) di un evento dal vivo, che può essere una tabella oppure un copione in cui ogni blocco è introdotto da orario e durata (es. "21.14’ (3’)", "22 25’ (5’)" o solo "21 (14’)" = 21:00, 14 minuti; in un copione ogni blocco con il suo orario è UNA riga, e le indicazioni di regia e le battute al suo interno non vanno restituite come righe separate).' + pageInfo + ' Individua OGNI riga/blocco del programma, dall\'inizio alla fine, nell\'ordine in cui compaiono: non saltare nessuna riga, non unire più righe in una sola, non riassumere, e includi anche pause, video, sigle, saluti, premiazioni e cambi palco. Se una riga ha più relatori, restituiscila comunque come una sola voce con tutti i nomi. Per ciascuno restituisci: "speaker" (nome del relatore oppure un titolo breve del blocco, al massimo 60 caratteri), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata in minuti, numero intero: usa quella indicata, altrimenti la differenza con l\'orario del blocco successivo, altrimenti una stima), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","start":"09:00","duration":15,"type":"flex"}]}';
 }
 
 function safeReadJson(res){
@@ -1321,19 +1331,34 @@ function throwApiError(providerLabel, res){
     throw apiError(st, msg);
   });
 }
-function parseAIJson(text){
+// Restituisce l'elenco delle righe; se la risposta è troncata o malformata recupera
+// le righe complete invece di scartare tutto, e segnala la perdita con items.truncated.
+function parseAIJson(text, truncated){
   if(!text){ throw new Error('Risposta vuota dal modello AI.'); }
   var cleaned = text.trim();
   cleaned = cleaned.replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
-  var parsed;
+  var parsed = null;
   try{ parsed = JSON.parse(cleaned); }
   catch(e){
     var match = cleaned.match(/\{[\s\S]*\}/);
-    if(match){ parsed = JSON.parse(match[0]); }
-    else { throw new Error('Impossibile interpretare la risposta AI come JSON.'); }
+    if(match){ try{ parsed = JSON.parse(match[0]); }catch(e2){} }
   }
-  var items = Array.isArray(parsed) ? parsed : parsed.items;
-  if(!Array.isArray(items)){ throw new Error('Formato JSON restituito inatteso (manca il campo "items").'); }
+  var items = parsed && (Array.isArray(parsed) ? parsed : parsed.items);
+  if(!Array.isArray(items)){
+    // JSON incompleto: ogni riga è un oggetto piatto, quindi si recuperano quelli chiusi.
+    items = [];
+    (cleaned.match(/\{[^{}]*\}/g) || []).forEach(function(chunk){
+      try{
+        var o = JSON.parse(chunk);
+        if(o && typeof o === 'object' && ('speaker' in o || 'duration' in o)) items.push(o);
+      }catch(e){}
+    });
+    if(items.length === 0){
+      throw new Error(truncated ? 'Risposta AI troncata (limite di token raggiunto).' : 'Impossibile interpretare la risposta AI come JSON.');
+    }
+    truncated = true;
+  }
+  items.truncated = !!truncated;
   return items;
 }
 
@@ -1350,14 +1375,15 @@ function callOpenAIVision(images, instruction){
         { role: 'user', content: content }
       ],
       response_format: { type: 'json_object' },
-      max_tokens: 4000
+      max_completion_tokens: 16000
     })
   }).then(function(res){
     if(!res.ok){ return throwApiError('OpenAI', res); }
     return res.json();
   }).then(function(data){
-    var text = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
-    return parseAIJson(text);
+    var choice = data.choices && data.choices[0];
+    var text = choice && choice.message ? choice.message.content : '';
+    return parseAIJson(text, choice && choice.finish_reason === 'length');
   });
 }
 function callAnthropicVision(images, instruction){
@@ -1388,7 +1414,7 @@ function callAnthropicVision(images, instruction){
     // La risposta può contenere blocchi "thinking" prima del testo: prendiamo solo i blocchi di testo.
     var text = (data.content || []).filter(function(b){ return b.type === 'text'; }).map(function(b){ return b.text; }).join('');
     if(!text && data.stop_reason === 'max_tokens'){ throw new Error('Risposta AI troncata (limite di token raggiunto).'); }
-    return parseAIJson(text);
+    return parseAIJson(text, data.stop_reason === 'max_tokens');
   });
 }
 
@@ -1403,7 +1429,7 @@ function callGeminiVision(images, instruction){
   var model = (settings.model || defaultModelFor('gemini')).replace(/^models\//, '');
   var body = JSON.stringify({
     contents: [ { role: 'user', parts: parts } ],
-    generationConfig: { responseMimeType: 'application/json' }
+    generationConfig: { responseMimeType: 'application/json', maxOutputTokens: 16000 }
   });
   function request(m){
     return fetchWithRetry(GEMINI_BASE + '/models/' + encodeURIComponent(m) + ':generateContent', {
@@ -1425,7 +1451,7 @@ function callGeminiVision(images, instruction){
     var cand = data.candidates && data.candidates[0];
     var text = cand && cand.content && cand.content.parts ? cand.content.parts.filter(function(p){ return p.text && !p.thought; }).map(function(p){ return p.text; }).join('') : '';
     if(!text && cand && cand.finishReason === 'MAX_TOKENS'){ throw new Error('Risposta AI troncata (limite di token raggiunto).'); }
-    return parseAIJson(text);
+    return parseAIJson(text, !!(cand && cand.finishReason === 'MAX_TOKENS'));
   });
 }
 
@@ -1480,21 +1506,68 @@ function showImportError(msg){
   statusEl.classList.remove('hidden');
 }
 
+function extractFromImages(images, firstPage, totalPages){
+  var instruction = buildExtractionPrompt(firstPage, firstPage + images.length - 1, totalPages);
+  if(settings.provider === 'openai'){ return callOpenAIVision(images, instruction); }
+  if(settings.provider === 'gemini'){ return callGeminiVision(images, instruction); }
+  return callAnthropicVision(images, instruction);
+}
+function showImportWarning(msg){
+  var statusEl = document.getElementById('import-status');
+  statusEl.textContent = msg;
+  statusEl.className = 'text-xs mt-2 text-amber-600';
+  statusEl.classList.remove('hidden');
+}
+
 function runExtraction(){
   if(!pendingFile) return;
   if(!settings.apiKey){ toast('Configura prima la chiave API nelle impostazioni.', 'error'); openSettingsModal(); return; }
   setImportLoading(true);
+  var warnings = [];
   fileToImages(pendingFile).then(function(images){
     if(images.length === 0){ throw new Error('Impossibile leggere il file selezionato.'); }
-    var instruction = buildExtractionPrompt();
-    if(settings.provider === 'openai'){ return callOpenAIVision(images, instruction); }
-    if(settings.provider === 'gemini'){ return callGeminiVision(images, instruction); }
-    return callAnthropicVision(images, instruction);
+    if(images.totalPages > images.length){
+      warnings.push('Il PDF ha ' + images.totalPages + ' pagine: sono state lette solo le prime ' + images.length + '.');
+    }
+    // Le pagine vanno a gruppi, in sequenza: ogni risposta resta corta e nessuna pagina viene ignorata.
+    var all = [];
+    var failed = [];
+    var firstError = null;
+    var chain = Promise.resolve();
+    var total = images.length;
+    for(var from = 0; from < total; from += PAGES_PER_REQUEST){
+      (function(from){
+        var to = Math.min(from + PAGES_PER_REQUEST, total);
+        var label = to - from === 1 ? 'pagina ' + (from + 1) : 'pagine ' + (from + 1) + '-' + to;
+        chain = chain.then(function(){
+          if(total > PAGES_PER_REQUEST){ setImportProgress('Lettura ' + label + ' di ' + total + '…'); }
+          return extractFromImages(images.slice(from, to), from + 1, total).then(function(items){
+            if(items.truncated){ warnings.push((total > 1 ? 'Nelle ' + label + ' ' : '') + 'la risposta AI era incompleta, alcune righe potrebbero mancare.'); }
+            all = all.concat(items);
+          }, function(err){
+            if(total <= PAGES_PER_REQUEST) throw err;
+            console.error(err);
+            if(!firstError) firstError = err;
+            failed.push(label);
+          });
+        });
+      })(from);
+    }
+    return chain.then(function(){
+      if(failed.length && all.length === 0) throw firstError;
+      if(failed.length){ warnings.push('Non è stato possibile leggere: ' + failed.join(', ') + ' (' + (firstError && firstError.message ? firstError.message : 'errore') + ').'); }
+      return all;
+    });
   }).then(function(items){
     if(!items || items.length === 0){ throw new Error('Nessun intervento riconosciuto nel file.'); }
     applyImportedItems(items);
-    toast(items.length + ' interventi importati con successo.', 'success');
-    document.getElementById('import-status').classList.add('hidden');
+    if(warnings.length){
+      toast(items.length + ' interventi importati, ma alcune righe potrebbero mancare.', 'warn');
+      showImportWarning(warnings.join(' '));
+    } else {
+      toast(items.length + ' interventi importati con successo.', 'success');
+      document.getElementById('import-status').classList.add('hidden');
+    }
   }).catch(function(err){
     console.error(err);
     showImportError(err && err.message ? err.message : 'Errore durante l\'estrazione.');
