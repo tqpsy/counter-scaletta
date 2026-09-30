@@ -128,15 +128,15 @@
           class="bg-transparent font-display text-lg sm:text-xl font-semibold tracking-tight w-full focus:outline-none border-b border-transparent focus:border-accent/60 truncate py-0.5" />
         <p class="text-xs text-white/45 font-mono-time" id="header-clock">--:--:--</p>
       </div>
-      <button id="open-both-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0" title="Apre Stage Display e Countdown insieme">
+      <button id="open-both-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0" title="Apre Stage Display e Countdown insieme">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
         Apri entrambi
       </button>
-      <button id="open-countdown-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0">
+      <button id="open-countdown-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
         Apri Countdown
       </button>
-      <button id="open-stage-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-accent text-ink text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-accent-soft transition-colors shrink-0">
+      <button id="open-stage-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-accent text-ink text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-accent-soft transition-colors shrink-0">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
         Apri Stage Display
       </button>
@@ -167,8 +167,8 @@
     <div class="min-w-0 flex flex-col gap-6">
 
       <!-- Pannello ON AIR -->
-      <section class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <section class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 xl:px-7 xl:py-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 xl:mb-3">
           <div class="flex items-center gap-2.5">
             <span id="onair-dot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
             <span id="onair-status" class="text-xs font-semibold tracking-wide text-white/60">IN ATTESA</span>
@@ -177,12 +177,15 @@
           <span id="delay-pill" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-white/70">In orario</span>
         </div>
 
-        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 truncate">Nessun intervento attivo</p>
+        <!-- Su PC nome e timer stanno sulla stessa riga, così il pannello è più basso. -->
+        <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:mb-4">
+        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 xl:mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
 
-        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/60 mb-1">00:00</div>
-        <p id="onair-planned" class="text-xs text-white/40 mb-5"></p>
+        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
+        <p id="onair-planned" class="text-xs text-white/40 mb-5 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
+        </div>
 
-        <div class="flex flex-wrap items-center gap-2 mb-5">
+        <div class="flex flex-wrap items-center gap-2 mb-5 xl:mb-4">
           <button id="play-btn" type="button" disabled title="Play (barra spaziatrice)" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play
           </button>
@@ -335,8 +338,12 @@
 
     </div>
 
-    <aside id="preview-col" class="hidden xl:block">
+    <aside id="preview-col" class="hidden xl:block xl:self-stretch">
       <div class="sticky top-[90px] flex flex-col gap-4">
+        <button type="button" data-open="both" class="preview-open w-full inline-flex items-center justify-center gap-2 bg-ink hover:bg-ink/90 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg transition-colors">
+          <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
+          Apri entrambe le finestre
+        </button>
         <div class="bg-white rounded-xl border border-gray-200 p-3">
           <div class="flex items-center justify-between gap-2 mb-2">
             <h2 class="font-display text-sm font-semibold text-gray-900">Stage Display</h2>
@@ -1171,7 +1178,7 @@ function renderDashboard(){
     statusEl.textContent = 'TERMINATO';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/40 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = '—';
     plannedEl.textContent = '';
@@ -1180,7 +1187,7 @@ function renderDashboard(){
     statusEl.textContent = 'IN ATTESA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/60 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = total > 0 ? state.schedule[0].speaker : '—';
     plannedEl.textContent = '';
@@ -1192,7 +1199,7 @@ function renderDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     typeBadgeEl.classList.remove('hidden');
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
     typeBadgeEl.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ' + (cur.type === 'flex' ? 'bg-sky-400/15 text-sky-300' : 'bg-violet-400/15 text-violet-300');
@@ -1371,7 +1378,7 @@ function tickDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     var effCell = document.querySelector('#schedule-tbody [data-eff="' + state.currentIndex + '"]');
     if(effCell){
       var elapsed = getItemElapsedSeconds(state.currentIndex);
@@ -2404,7 +2411,8 @@ function setupPreviews(){
   window.addEventListener('resize', fit);
   sync();
   Array.prototype.forEach.call(col.querySelectorAll('.preview-open'), function(btn){
-    btn.addEventListener('click', btn.dataset.open === 'stage' ? openStage : openCountdown);
+    var open = btn.dataset.open;
+    btn.addEventListener('click', open === 'stage' ? openStage : open === 'countdown' ? openCountdown : openBoth);
   });
 }
 
