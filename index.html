@@ -823,6 +823,12 @@ function parseDuration(text){
   var sec = parts.length === 3 ? n[0]*3600 + n[1]*60 + n[2] : (parts.length === 2 ? n[0]*60 + n[1] : n[0]*60);
   return sec > 0 ? sec / 60 : null;
 }
+// Minuti in ore e minuti: "45 min", "2 h", "6 h 8 min".
+function hoursMinutesLabel(minutes){
+  var m = Math.round(Math.abs(minutes));
+  if(m < 60) return m + ' min';
+  return Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
+}
 // "15 min" per i minuti interi, altrimenti "2:30" o "1:05:30".
 function durationLabel(minutes){
   var s = Math.max(0, Math.round(minutes * 60));
@@ -1254,10 +1260,10 @@ function updateFinishEstimate(){
     endDiffEl.textContent = 'In linea con l\'orario di fine.';
     endDiffEl.className = 'text-xs text-white/50 mb-4';
   } else if(endDiff < 0){
-    endDiffEl.textContent = 'Sforamento previsto di ' + Math.round(Math.abs(endDiff)) + ' min oltre la fine desiderata.';
+    endDiffEl.textContent = 'Sforamento previsto di ' + hoursMinutesLabel(endDiff) + ' oltre la fine desiderata.';
     endDiffEl.className = 'text-xs text-red-400 font-medium mb-4';
   } else {
-    endDiffEl.textContent = 'Margine di ' + Math.round(endDiff) + ' min prima della fine desiderata.';
+    endDiffEl.textContent = 'Margine di ' + hoursMinutesLabel(endDiff) + ' prima della fine desiderata.';
     endDiffEl.className = 'text-xs text-emerald-400 font-medium mb-4';
   }
 }
