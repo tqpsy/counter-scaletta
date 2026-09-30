@@ -80,6 +80,11 @@
   .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .disp-progress { width: min(80vw, 70rem); height: calc(var(--s) * max(6px, 1.2vh)); border-radius: 9999px; background: rgba(255,255,255,.12); overflow: hidden; }
   .disp-progress > div { height: 100%; width: 0; border-radius: inherit; background: #34d399; transition: width .25s linear; }
+  .disp-msg { font-size: calc(var(--s) * clamp(1.5rem, min(5vw, 8vh), 6rem)); font-weight: 700; line-height: 1.1; color: #0b0b0b; background: #fde047; padding: .2em .6em; border-radius: .3em; max-width: 94vw; overflow-wrap: anywhere; }
+  .disp-msg:empty { display: none; }
+  @keyframes dispMsgFlash { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+  .disp-msg.disp-msg-new { animation: dispMsgFlash .6s ease-in-out 5; }
+  @media (prefers-reduced-motion: reduce) { .disp-msg.disp-msg-new { animation: none; } }
   .disp-sub { font-size: calc(var(--s) * clamp(0.9rem, min(2.2vw, 3.6vh), 2.5rem)); color: rgba(255,255,255,.7); }
   .disp-fs-btn { position: fixed; right: 16px; bottom: 16px; z-index: 40; align-items: center; gap: .5rem; padding: .6rem .9rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; font-size: .875rem; font-weight: 600; transition: opacity .3s; }
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
@@ -212,6 +217,25 @@
           <button id="autobalance-btn" type="button" class="inline-flex items-center gap-2 bg-accent hover:bg-accent-soft text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors ml-auto">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v18M5 8l-3 5a3 3 0 0 0 6 0zM19 8l-3 5a3 3 0 0 0 6 0zM5 8h14M9 3h6"/></svg> Auto-Balance
           </button>
+        </div>
+
+        <div class="border-t border-white/10 pt-3 mb-3">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <p class="text-xs font-semibold tracking-wide text-white/60">MESSAGGIO AL RELATORE</p>
+            <p id="stage-msg-current" class="hidden text-xs font-semibold text-ink bg-yellow-300 rounded px-2 py-0.5 truncate max-w-[60%]"></p>
+          </div>
+          <div class="flex flex-wrap gap-1.5 mb-2">
+            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Mancano 2 minuti">2 minuti</button>
+            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Accelera">Accelera</button>
+            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Concludi">Concludi</button>
+            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Ultima domanda">Ultima domanda</button>
+            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Microfono">Microfono</button>
+          </div>
+          <form id="stage-msg-form" class="flex items-stretch gap-2">
+            <input id="stage-msg-input" type="text" maxlength="120" autocomplete="off" placeholder="Scrivi un messaggio…" class="min-w-0 flex-1 text-sm bg-white/10 text-white placeholder-white/40 rounded-lg px-3 py-2 border border-white/10" />
+            <button type="submit" class="shrink-0 text-sm font-semibold bg-yellow-300 hover:bg-yellow-200 text-ink px-3 rounded-lg transition-colors">Invia</button>
+            <button id="stage-msg-clear" type="button" disabled class="shrink-0 text-sm font-semibold bg-white/10 hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed text-white px-3 rounded-lg transition-colors">Togli</button>
+          </form>
         </div>
 
         <div class="text-xs text-white/50 border-t border-white/10 pt-3">
@@ -412,6 +436,7 @@
     <p id="stage-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
     <p id="stage-event-title" class="disp-el disp-title" data-el="title"></p>
     <p id="stage-status" class="disp-el disp-status" data-el="status"></p>
+    <p id="stage-message" class="disp-el disp-msg font-display" data-el="message" role="status" aria-live="assertive"></p>
     <p id="stage-name" class="disp-el disp-name font-display" data-el="name">In attesa di inizio</p>
     <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00</div>
     <div id="stage-progress" class="disp-el disp-progress" data-el="progress"><div id="stage-progress-bar"></div></div>
@@ -635,6 +660,7 @@ function defaultState(){
     running: false,
     activeStartEpoch: null,
     recoveredSeconds: 0,
+    stageMessage: '',
     display: defaultDisplay()
   };
 }
@@ -649,6 +675,7 @@ var DISPLAY_ELEMENTS = {
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
+    { key: 'message', label: 'Messaggio al relatore', show: true, pos: 'center', big: true },
     { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
     { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
@@ -1566,9 +1593,30 @@ function updateImportProviderLabel(){
   }
 }
 
+function setStageMessage(text){
+  state.stageMessage = (text || '').trim().slice(0, 120);
+  broadcastState();
+  renderStageMessageControls();
+}
+function renderStageMessageControls(){
+  var msg = state.stageMessage || '';
+  var cur = document.getElementById('stage-msg-current');
+  cur.textContent = msg ? 'Sullo Stage: ' + msg : '';
+  cur.classList.toggle('hidden', !msg);
+  document.getElementById('stage-msg-clear').disabled = !msg;
+  Array.prototype.forEach.call(document.querySelectorAll('.stage-msg-quick'), function(btn){
+    var active = btn.dataset.msg === msg;
+    btn.classList.toggle('bg-yellow-300', active);
+    btn.classList.toggle('text-ink', active);
+    btn.classList.toggle('bg-white/10', !active);
+    btn.classList.toggle('text-white', !active);
+    btn.classList.toggle('hover:bg-white/15', !active);
+  });
+}
 function renderDashboard(){
   if(isStage) return;
   document.title = (state.eventTitle || 'Scaletta Evento') + ' — Regia Tempi';
+  renderStageMessageControls();
   var titleInput = document.getElementById('event-title-input');
   if(document.activeElement !== titleInput){ titleInput.value = state.eventTitle; }
   var startInput = document.getElementById('event-start-input');
@@ -1915,7 +1963,18 @@ function renderStage(){
   renderDisplayLogo('stage-logo');
   document.getElementById('stage-event-title').textContent = state.eventTitle || '';
   applyDisplayLayout('stage');
+  renderStageMessage();
   tickStage();
+}
+// Messaggio dalla regia: quando cambia lampeggia qualche volta per farsi notare.
+function renderStageMessage(){
+  var el = document.getElementById('stage-message');
+  var text = state.stageMessage || '';
+  if(el.textContent === text) return;
+  el.textContent = text;
+  el.classList.remove('disp-msg-new');
+  if(text){ void el.offsetWidth; el.classList.add('disp-msg-new'); }
+  lastFitText = null;
 }
 var TIMER_BASE_CLASS = 'disp-el disp-timer font-mono-time ';
 function tickStage(){
@@ -3100,6 +3159,18 @@ function wireEvents(){
   document.getElementById('pause-btn').addEventListener('click', actionPause);
   document.getElementById('reset-btn').addEventListener('click', actionReset);
   document.getElementById('next-btn').addEventListener('click', actionNext);
+  Array.prototype.forEach.call(document.querySelectorAll('.stage-msg-quick'), function(btn){
+    // Ripremere il messaggio già attivo lo toglie.
+    btn.addEventListener('click', function(){ setStageMessage(state.stageMessage === btn.dataset.msg ? '' : btn.dataset.msg); });
+  });
+  document.getElementById('stage-msg-form').addEventListener('submit', function(e){
+    e.preventDefault();
+    var input = document.getElementById('stage-msg-input');
+    if(!input.value.trim()) return;
+    setStageMessage(input.value);
+    input.value = '';
+  });
+  document.getElementById('stage-msg-clear').addEventListener('click', function(){ setStageMessage(''); });
   document.getElementById('autobalance-btn').addEventListener('click', actionAutoBalance);
   document.getElementById('apply-endtime-btn').addEventListener('click', actionApplyEndTime);
   document.getElementById('add-row-btn').addEventListener('click', addRow);
