@@ -83,6 +83,8 @@
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
   .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
   .hidden-important { display: none !important; }
+  /* Anteprime nella dashboard: il display gira a 1920x1080 e viene rimpicciolito. */
+  .preview-frame { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
   #import-panel > summary::-webkit-details-marker { display: none; }
   /* Scaletta sul telefono: ogni riga della tabella diventa una scheda. */
   @media (max-width: 767px) {
@@ -116,7 +118,7 @@
 <div id="dashboard-root">
 
   <header class="sticky top-0 z-30 bg-ink text-white border-b border-white/10">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+    <div class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
       <img id="header-logo" src="" alt="Logo evento" class="h-10 w-10 rounded-lg object-contain bg-white/5 shrink-0 hidden" />
       <div id="header-logo-placeholder" class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center text-accent shrink-0">
         <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></svg>
@@ -158,7 +160,9 @@
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Su PC (da 1280 px) a destra c'è una colonna fissa con le anteprime dal vivo
+       di Stage e Countdown; le finestre separate restano per gli schermi estesi. -->
+  <main class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-6 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_520px] xl:gap-6 xl:items-start">
 
     <div class="min-w-0 flex flex-col gap-6">
 
@@ -331,9 +335,38 @@
 
     </div>
 
+    <aside id="preview-col" class="hidden xl:block">
+      <div class="sticky top-[90px] flex flex-col gap-4">
+        <div class="bg-white rounded-xl border border-gray-200 p-3">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-sm font-semibold text-gray-900">Stage Display</h2>
+            <button type="button" data-open="stage" class="preview-open inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-accent px-2 py-1 rounded-md transition-colors">
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+              Apri finestra
+            </button>
+          </div>
+          <div class="preview-box relative aspect-video rounded-lg overflow-hidden bg-black">
+            <iframe class="preview-frame" data-query="?stage=1&amp;embed=1" title="Anteprima Stage Display" tabindex="-1" aria-hidden="true"></iframe>
+          </div>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-sm font-semibold text-gray-900">Countdown</h2>
+            <button type="button" data-open="countdown" class="preview-open inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-accent px-2 py-1 rounded-md transition-colors">
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+              Apri finestra
+            </button>
+          </div>
+          <div class="preview-box relative aspect-video rounded-lg overflow-hidden bg-black">
+            <iframe class="preview-frame" data-query="?countdown=1&amp;embed=1" title="Anteprima Countdown" tabindex="-1" aria-hidden="true"></iframe>
+          </div>
+        </div>
+      </div>
+    </aside>
+
   </main>
 
-  <footer class="max-w-5xl mx-auto px-4 sm:px-6 pb-8 pt-2">
+  <footer class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 pb-8 pt-2">
     <p class="text-[11px] text-gray-400">Regia Tempi — applicazione client-side, nessun dato lascia questo browser eccetto le chiamate dirette alle API AI selezionate per l'importazione della scaletta.</p>
   </footer>
 </div>
@@ -506,6 +539,8 @@ var targetIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke
 var params = new URLSearchParams(window.location.search);
 var isStage = params.get('stage') === '1';
 var isCountdown = params.get('countdown') === '1';
+// Display dentro l'anteprima della dashboard: niente schermo intero né schermo sempre acceso.
+var isEmbed = params.get('embed') === '1';
 
 function renderActive(){
   if(isStage){ renderStage(); }
@@ -2308,6 +2343,10 @@ function toggleFullscreen(){
   }
 }
 function setupDisplayControls(root){
+  // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
+  window.addEventListener('resize', function(){ lastFitText = null; });
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+  if(isEmbed) return;
   var btn = document.getElementById('disp-fs-btn');
   var canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   if(canFullscreen){
@@ -2335,9 +2374,38 @@ function setupDisplayControls(root){
   ['mousemove', 'pointerdown', 'keydown'].forEach(function(evt){ document.addEventListener(evt, wake); });
   wake();
   document.addEventListener('visibilitychange', requestWakeLock);
-  // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
-  window.addEventListener('resize', function(){ lastFitText = null; });
-  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+}
+
+// Le anteprime si caricano solo quando la colonna è visibile (da 1280 px),
+// così su telefono e tablet non girano due display nascosti.
+function setupPreviews(){
+  var col = document.getElementById('preview-col');
+  var frames = col.querySelectorAll('.preview-frame');
+  var base = window.location.href.split('#')[0].split('?')[0];
+  var mq = window.matchMedia ? window.matchMedia('(min-width: 1280px)') : null;
+  function fit(){
+    Array.prototype.forEach.call(frames, function(f){
+      var w = f.parentNode.clientWidth;
+      if(w) f.style.transform = 'scale(' + (w / 1920) + ')';
+    });
+  }
+  function sync(){
+    var on = !mq || mq.matches;
+    Array.prototype.forEach.call(frames, function(f){
+      if(on && !f.getAttribute('src')){ f.setAttribute('src', base + f.dataset.query); }
+      else if(!on && f.getAttribute('src')){ f.removeAttribute('src'); }
+    });
+    fit();
+  }
+  if(mq){
+    if(mq.addEventListener){ mq.addEventListener('change', sync); }
+    else if(mq.addListener){ mq.addListener(sync); }
+  }
+  window.addEventListener('resize', fit);
+  sync();
+  Array.prototype.forEach.call(col.querySelectorAll('.preview-open'), function(btn){
+    btn.addEventListener('click', btn.dataset.open === 'stage' ? openStage : openCountdown);
+  });
 }
 
 /* ---------------------------------------------------------------- */
@@ -2559,6 +2627,7 @@ function init(){
   } else {
     document.getElementById('dashboard-root').classList.remove('hidden');
     setImportPanelOpen(state.schedule.length === 0);
+    setupPreviews();
   }
 
   wireEvents();
@@ -2604,7 +2673,7 @@ document.getElementById('install-app-btn').addEventListener('click', function(){
 });
 
 // Service worker: permette di riaprire dashboard e Stage Display anche offline.
-if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isEmbed){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   });
