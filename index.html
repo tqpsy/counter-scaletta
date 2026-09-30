@@ -15,9 +15,11 @@
 <script>
 (function(){
   try{
-    var raw = localStorage.getItem('rtl_state_v1');
-    var logo = null;
-    if(raw){ var st = JSON.parse(raw); logo = st && st.logo ? st.logo : null; }
+    var logo = localStorage.getItem('rtl_logo_v1');
+    if(!logo){
+      var raw = localStorage.getItem('rtl_state_v1');
+      if(raw){ var st = JSON.parse(raw); logo = st && st.logo ? st.logo : null; }
+    }
     var fallback = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#10131A"/><g fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></g></svg>');
     var href = logo || fallback;
     var l1 = document.getElementById('app-favicon'); if(l1) l1.href = href;
@@ -387,6 +389,7 @@
 /* ---------------------------------------------------------------- */
 var LS_SETTINGS_KEY = 'rtl_settings_v1';
 var LS_STATE_KEY = 'rtl_state_v1';
+var LS_LOGO_KEY = 'rtl_logo_v1';
 var BC_NAME = 'regia_tempi_relatori_v1';
 var MIN_ITEM_SECONDS = 60;
 
@@ -437,16 +440,35 @@ function firstPendingIndex(){
   return -1;
 }
 
+// Il logo (data URL, anche decine di KB) vive in una chiave a parte, così
+// il salvataggio e la sincronizzazione di ogni azione non lo riserializzano.
 function loadState(){
+  var st = defaultState();
   try{
     var raw = localStorage.getItem(LS_STATE_KEY);
-    if(raw){ return Object.assign(defaultState(), JSON.parse(raw)); }
+    if(raw){ st = Object.assign(st, JSON.parse(raw)); }
+    var logo = localStorage.getItem(LS_LOGO_KEY);
+    if(logo){ st.logo = logo; }
   }catch(e){}
-  return defaultState();
+  return st;
+}
+function stateWithoutLogo(){
+  var copy = {};
+  for(var k in state){ if(k !== 'logo' && Object.prototype.hasOwnProperty.call(state, k)) copy[k] = state[k]; }
+  return copy;
 }
 var saveErrorShown = false;
+var savedLogo;
 function saveState(){
-  try{ localStorage.setItem(LS_STATE_KEY, JSON.stringify(state)); saveErrorShown = false; }
+  try{
+    if(state.logo !== savedLogo){
+      if(state.logo){ localStorage.setItem(LS_LOGO_KEY, state.logo); }
+      else { localStorage.removeItem(LS_LOGO_KEY); }
+      savedLogo = state.logo;
+    }
+    localStorage.setItem(LS_STATE_KEY, JSON.stringify(stateWithoutLogo()));
+    saveErrorShown = false;
+  }
   catch(e){
     if(!saveErrorShown && !isStage && !isCountdown){
       saveErrorShown = true;
@@ -475,8 +497,30 @@ var pendingFile = null;
 var bc = null;
 try{ bc = new BroadcastChannel(BC_NAME); }catch(e){ bc = null; }
 
+// Ultimo valore sincronizzato di ogni campo (serializzato; il logo è già una
+// stringa). Serve a inviare solo i campi cambiati dall'ultimo messaggio.
+var syncedFields = {};
+function fieldKey(k, v){ return k === 'logo' ? (v || '') : JSON.stringify(v); }
+function rememberSynced(obj){
+  for(var k in obj){ if(Object.prototype.hasOwnProperty.call(obj, k)) syncedFields[k] = fieldKey(k, obj[k]); }
+}
+rememberSynced(state);
+// Al primo avvio dopo l'aggiornamento il logo è ancora dentro rtl_state_v1:
+// partendo da ciò che è davvero in LS_LOGO_KEY, il primo salvataggio lo migra.
+try{ savedLogo = localStorage.getItem(LS_LOGO_KEY) || null; }catch(e){ savedLogo = null; }
+
 function broadcastState(){
+  var patch = {}, changed = false;
+  for(var k in state){
+    if(!Object.prototype.hasOwnProperty.call(state, k)) continue;
+    var key = fieldKey(k, state[k]);
+    if(syncedFields[k] !== key){ patch[k] = state[k]; syncedFields[k] = key; changed = true; }
+  }
+  if(!changed) return;
   saveState();
+  if(bc){ try{ bc.postMessage({ type: 'patch', payload: patch }); }catch(e){} }
+}
+function sendFullState(){
   if(bc){ try{ bc.postMessage({ type: 'state', payload: state }); }catch(e){} }
 }
 
@@ -486,21 +530,29 @@ if(bc){
     if(!msg) return;
     if(msg.type === 'state'){
       state = Object.assign(defaultState(), msg.payload);
+      rememberSynced(state);
+      savedLogo = state.logo;
+      renderActive();
+    } else if(msg.type === 'patch'){
+      Object.assign(state, msg.payload);
+      rememberSynced(msg.payload);
+      if('logo' in msg.payload) savedLogo = state.logo;
       renderActive();
     } else if(msg.type === 'request_state' && !isStage && !isCountdown){
-      broadcastState();
+      sendFullState();
     }
   };
+} else {
+  // Ripiego per browser senza BroadcastChannel: con il canale attivo l'evento
+  // storage duplicherebbe ogni aggiornamento, quindi lo si ascolta solo qui.
+  window.addEventListener('storage', function(e){
+    if(e.key !== LS_STATE_KEY && e.key !== LS_LOGO_KEY) return;
+    state = loadState();
+    rememberSynced(state);
+    savedLogo = state.logo;
+    renderActive();
+  });
 }
-
-window.addEventListener('storage', function(e){
-  if(e.key === LS_STATE_KEY && e.newValue){
-    try{
-      state = Object.assign(defaultState(), JSON.parse(e.newValue));
-      renderActive();
-    }catch(err){}
-  }
-});
 
 /* ---------------------------------------------------------------- */
 /* Utility                                                            */
