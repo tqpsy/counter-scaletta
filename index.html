@@ -440,7 +440,12 @@ function firstPendingIndex(){
 function loadState(){
   try{
     var raw = localStorage.getItem(LS_STATE_KEY);
-    if(raw){ return Object.assign(defaultState(), JSON.parse(raw)); }
+    if(raw){
+      var loaded = Object.assign(defaultState(), JSON.parse(raw));
+      // Ogni riga ha bisogno di un id stabile per aggiornare la tabella senza ricrearla.
+      (loaded.schedule || []).forEach(function(it){ if(!it.id){ it.id = uid(); } });
+      return loaded;
+    }
   }catch(e){}
   return defaultState();
 }
@@ -939,6 +944,44 @@ function updateFinishEstimate(){
   }
 }
 
+// Stato visivo di una riga, condiviso tra ricostruzione completa e aggiornamento in place.
+function scheduleRowView(it, idx, plannedStart){
+  var isCurrent = idx === state.currentIndex;
+  var elapsed = getItemElapsedSeconds(idx);
+  return {
+    plannedStart: plannedStart,
+    statusLabel: it.status === 'done' ? 'Concluso' : (isCurrent ? (state.running ? 'In onda' : 'In pausa') : 'In attesa'),
+    statusClass: it.status === 'done' ? 'bg-gray-100 text-gray-500' : (isCurrent ? (state.running ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700') : 'bg-gray-50 text-gray-400'),
+    effTime: (it.status === 'done' || isCurrent) ? formatSecondsSigned(elapsed) : '—',
+    effClass: elapsed > it.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500',
+    rowBg: isCurrent ? 'bg-amber-50/60' : (it.status === 'done' ? 'bg-gray-50/60' : 'bg-white'),
+    typeBtnClass: it.type === 'flex' ? 'bg-sky-50 text-sky-700 hover:bg-sky-100' : 'bg-violet-50 text-violet-700 hover:bg-violet-100',
+    typeLabel: it.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Fisso'
+  };
+}
+
+// Aggiorna una riga esistente senza ricrearla, così il focus (e il cursore) restano dove sono.
+function patchScheduleRow(tr, it, idx, v){
+  var trClass = v.rowBg + ' border-b border-gray-100 last:border-0 group';
+  if(tr.className !== trClass){ tr.className = trClass; }
+  var cells = tr.children;
+  cells[0].textContent = idx + 1;
+  var typeBtn = cells[1].firstElementChild;
+  var typeBtnClass = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap ' + v.typeBtnClass;
+  if(typeBtn.className !== typeBtnClass){ typeBtn.className = typeBtnClass; typeBtn.innerHTML = v.typeLabel; }
+  var speakerInput = cells[2].firstElementChild;
+  if(document.activeElement !== speakerInput && speakerInput.value !== it.speaker){ speakerInput.value = it.speaker; }
+  var durationInput = cells[3].firstElementChild;
+  var dur = String(Math.round(it.duration));
+  if(document.activeElement !== durationInput && durationInput.value !== dur){ durationInput.value = dur; }
+  cells[4].textContent = v.plannedStart;
+  var statusSpan = cells[5].firstElementChild;
+  statusSpan.textContent = v.statusLabel;
+  statusSpan.className = 'inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + v.statusClass;
+  cells[6].textContent = v.effTime;
+  cells[6].className = 'px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
+}
+
 function renderScheduleTable(){
   var tbody = document.getElementById('schedule-tbody');
   if(state.schedule.length === 0){
@@ -946,23 +989,36 @@ function renderScheduleTable(){
     return;
   }
   var cum = hhmmToMinutes(state.eventStart);
-  var html = state.schedule.map(function(it, idx){
-    var plannedStart = minutesToHHMM(cum);
+  var views = state.schedule.map(function(it, idx){
+    var v = scheduleRowView(it, idx, minutesToHHMM(cum));
     cum += it.duration;
-    var isCurrent = idx === state.currentIndex;
-    var statusLabel = it.status === 'done' ? 'Concluso' : (isCurrent ? (state.running ? 'In onda' : 'In pausa') : 'In attesa');
-    var statusClass = it.status === 'done' ? 'bg-gray-100 text-gray-500' : (isCurrent ? (state.running ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700') : 'bg-gray-50 text-gray-400');
-    var elapsed = getItemElapsedSeconds(idx);
-    var effTime = (it.status === 'done' || isCurrent) ? formatSecondsSigned(elapsed) : '—';
-    var effClass = elapsed > it.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500';
-    var rowBg = isCurrent ? 'bg-amber-50/60' : (it.status === 'done' ? 'bg-gray-50/60' : 'bg-white');
-    var typeBtnClass = it.type === 'flex' ? 'bg-sky-50 text-sky-700 hover:bg-sky-100' : 'bg-violet-50 text-violet-700 hover:bg-violet-100';
+    return v;
+  });
+
+  // Stesse righe nello stesso ordine: aggiornamento in place.
+  var rows = tbody.querySelectorAll('tr[data-id]');
+  var sameRows = rows.length === state.schedule.length && state.schedule.every(function(it, idx){ return rows[idx].dataset.id === it.id; });
+  if(sameRows){
+    state.schedule.forEach(function(it, idx){ patchScheduleRow(rows[idx], it, idx, views[idx]); });
+    return;
+  }
+
+  // Righe aggiunte, rimosse o spostate: ricostruzione completa, poi ripristino del focus sullo stesso controllo.
+  var active = document.activeElement;
+  var activeRow = (active && tbody.contains(active)) ? active.closest('tr[data-id]') : null;
+  var focusId = activeRow ? activeRow.dataset.id : null;
+  var focusAction = activeRow ? active.dataset.action : null;
+
+  var html = state.schedule.map(function(it, idx){
+    var v = views[idx];
+    var plannedStart = v.plannedStart, statusLabel = v.statusLabel, statusClass = v.statusClass;
+    var effTime = v.effTime, effClass = v.effClass, rowBg = v.rowBg, typeBtnClass = v.typeBtnClass;
     return '' +
-      '<tr class="' + rowBg + ' border-b border-gray-100 last:border-0 group" data-idx="' + idx + '">' +
+      '<tr class="' + rowBg + ' border-b border-gray-100 last:border-0 group" data-idx="' + idx + '" data-id="' + escapeHtml(it.id) + '">' +
         '<td class="px-3 py-2.5 text-sm text-gray-400 tabular-nums">' + (idx+1) + '</td>' +
         '<td class="px-3 py-2.5">' +
           '<button type="button" data-action="toggle-type" data-idx="' + idx + '" class="inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md whitespace-nowrap ' + typeBtnClass + '">' +
-            (it.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Fisso') +
+            v.typeLabel +
           '</button>' +
         '</td>' +
         '<td class="px-3 py-2.5 min-w-[160px]">' +
@@ -985,6 +1041,12 @@ function renderScheduleTable(){
       '</tr>';
   }).join('');
   tbody.innerHTML = html;
+
+  if(focusId && focusAction){
+    var target = Array.prototype.find.call(tbody.querySelectorAll('tr[data-id]'), function(tr){ return tr.dataset.id === focusId; });
+    var el = target && target.querySelector('[data-action="' + focusAction + '"]');
+    if(el){ el.focus(); }
+  }
 }
 
 function tickDashboard(){
