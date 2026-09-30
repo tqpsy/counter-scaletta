@@ -344,6 +344,7 @@
         <select id="settings-provider" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 mb-3 focus:outline-none">
           <option value="openai">OpenAI (GPT-4o Vision)</option>
           <option value="anthropic">Anthropic (Claude Vision)</option>
+          <option value="gemini">Google (Gemini)</option>
         </select>
         <label class="text-xs text-gray-500 block mb-1" for="settings-model">Modello</label>
         <input type="text" id="settings-model" placeholder="es. gpt-4o" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 mb-3 font-mono-time focus:outline-none" />
@@ -427,8 +428,9 @@ function defaultState(){
 function defaultSettings(){
   return { provider: 'openai', apiKey: '', model: 'gpt-4o' };
 }
+var DEFAULT_MODELS = { openai: 'gpt-4o', anthropic: 'claude-opus-5-5', gemini: 'gemini-flash-latest' };
 function defaultModelFor(provider){
-  return provider === 'openai' ? 'gpt-4o' : 'claude-opus-5-5';
+  return DEFAULT_MODELS[provider] || DEFAULT_MODELS.openai;
 }
 function firstPendingIndex(){
   for(var i=0;i<state.schedule.length;i++){ if(state.schedule[i].status !== 'done') return i; }
@@ -795,10 +797,11 @@ function setFavicon(href){
   if(touch) touch.href = href;
 }
 
-function providerName(provider){ return provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)'; }
+function providerName(provider){ return ({ openai: 'OpenAI', anthropic: 'Anthropic (Claude)', gemini: 'Google (Gemini)' })[provider] || provider; }
 function maskKey(key){ return key ? '••••' + key.slice(-4) : ''; }
 function guessProviderFromKey(key){
   if(/^sk-ant-/.test(key)) return 'anthropic';
+  if(/^AIza/.test(key)) return 'gemini';
   if(/^sk-/.test(key)) return 'openai';
   return null;
 }
@@ -817,7 +820,7 @@ function updateImportProviderLabel(){
     btnLabel.textContent = 'Modifica chiave API';
   } else {
     el.textContent = 'Nessuna chiave API configurata';
-    hint.textContent = 'Per leggere la scaletta con l\'AI inserisci la tua chiave personale OpenAI o Anthropic. Resta salvata solo su questo dispositivo.';
+    hint.textContent = 'Per leggere la scaletta con l\'AI inserisci la tua chiave personale OpenAI, Anthropic o Google (Gemini). Resta salvata solo su questo dispositivo.';
     box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-amber-200 bg-amber-50 text-amber-900';
     btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-accent hover:bg-accent-soft text-ink';
     btnLabel.textContent = 'Inserisci la tua chiave API';
@@ -1295,6 +1298,38 @@ function callAnthropicVision(images, instruction){
   });
 }
 
+var GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+function callGeminiVision(images, instruction){
+  var parts = [{ text: instruction }];
+  images.forEach(function(img){
+    var match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(img);
+    if(match){ parts.push({ inline_data: { mime_type: match[1], data: match[2] } }); }
+  });
+  var model = (settings.model || defaultModelFor('gemini')).replace(/^models\//, '');
+  return fetch(GEMINI_BASE + '/models/' + encodeURIComponent(model) + ':generateContent', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': settings.apiKey },
+    body: JSON.stringify({
+      contents: [ { role: 'user', parts: parts } ],
+      generationConfig: { responseMimeType: 'application/json' }
+    })
+  }).then(function(res){
+    if(!res.ok){
+      return safeReadJson(res).then(function(errBody){
+        var msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : res.statusText;
+        throw new Error('Errore API Google Gemini (' + res.status + '): ' + msg);
+      });
+    }
+    return res.json();
+  }).then(function(data){
+    if(data.promptFeedback && data.promptFeedback.blockReason){ throw new Error('Richiesta bloccata da Gemini (' + data.promptFeedback.blockReason + ').'); }
+    var cand = data.candidates && data.candidates[0];
+    var text = cand && cand.content && cand.content.parts ? cand.content.parts.filter(function(p){ return p.text && !p.thought; }).map(function(p){ return p.text; }).join('') : '';
+    if(!text && cand && cand.finishReason === 'MAX_TOKENS'){ throw new Error('Risposta AI troncata (limite di token raggiunto).'); }
+    return parseAIJson(text);
+  });
+}
+
 function applyImportedItems(items){
   var mapped = items.map(function(raw){
     var d = parseFloat(raw.duration);
@@ -1350,6 +1385,7 @@ function runExtraction(){
     if(images.length === 0){ throw new Error('Impossibile leggere il file selezionato.'); }
     var instruction = buildExtractionPrompt();
     if(settings.provider === 'openai'){ return callOpenAIVision(images, instruction); }
+    if(settings.provider === 'gemini'){ return callGeminiVision(images, instruction); }
     return callAnthropicVision(images, instruction);
   }).then(function(items){
     if(!items || items.length === 0){ throw new Error('Nessun intervento riconosciuto nel file.'); }
@@ -1369,7 +1405,8 @@ function runExtraction(){
 /* ---------------------------------------------------------------- */
 var KEY_HELP = {
   openai: { url: 'https://platform.openai.com/api-keys', label: 'platform.openai.com/api-keys', placeholder: 'sk-proj-...' },
-  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' }
+  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' },
+  gemini: { url: 'https://aistudio.google.com/apikey', label: 'aistudio.google.com/apikey', placeholder: 'AIza...' }
 };
 function updateSettingsKeyHelp(){
   var provider = document.getElementById('settings-provider').value;
@@ -1397,18 +1434,24 @@ function openSettingsModal(){
 }
 // Verifica la chiave con una chiamata gratuita all'elenco modelli del provider.
 function verifyApiKey(provider, key){
-  var req = provider === 'openai'
-    ? fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': 'Bearer ' + key } })
-    : fetch('https://api.anthropic.com/v1/models', { headers: {
-        'x-api-key': key,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true'
-      } });
+  var req;
+  if(provider === 'openai'){
+    req = fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': 'Bearer ' + key } });
+  } else if(provider === 'gemini'){
+    req = fetch(GEMINI_BASE + '/models', { headers: { 'x-goog-api-key': key } });
+  } else {
+    req = fetch('https://api.anthropic.com/v1/models', { headers: {
+      'x-api-key': key,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    } });
+  }
   return req.then(function(res){
     if(res.ok) return true;
     return safeReadJson(res).then(function(body){
       var msg = body && body.error && body.error.message ? body.error.message : res.statusText;
-      if(res.status === 401 || res.status === 403){ msg = 'chiave non valida o non autorizzata'; }
+      // Google risponde 400 "API key not valid" per le chiavi errate.
+      if(res.status === 401 || res.status === 403 || (provider === 'gemini' && /api key/i.test(msg))){ msg = 'chiave non valida o non autorizzata'; }
       throw new Error(msg + ' (' + res.status + ')');
     });
   }, function(){
@@ -1483,7 +1526,8 @@ function wireEvents(){
     var provider = e.target.value;
     updateSettingsKeyHelp();
     var modelInput = document.getElementById('settings-model');
-    if(!modelInput.value || modelInput.value === defaultModelFor('openai') || modelInput.value === defaultModelFor('anthropic') || modelInput.value === 'claude-sonnet-4-5'){
+    var known = Object.keys(DEFAULT_MODELS).map(function(k){ return DEFAULT_MODELS[k]; }).concat(['claude-sonnet-4-5']);
+    if(!modelInput.value || known.indexOf(modelInput.value) !== -1){
       modelInput.value = defaultModelFor(provider);
     }
   });
