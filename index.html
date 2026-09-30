@@ -207,15 +207,28 @@
     <!-- Colonna laterale -->
     <div class="flex flex-col gap-6 min-w-0">
 
-      <!-- Import AI -->
+      <!-- Import PDF (lettura interna) -->
       <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-        <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa scaletta con AI</h2>
-        <p class="text-xs text-gray-500 mb-3 leading-relaxed">Carica una foto o un PDF della scaletta: i copioni PDF con orari e durate vengono letti direttamente, senza AI né chiave; per foto e altri formati serve la chiave AI. Le righe restano modificabili.</p>
+        <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa PDF</h2>
+        <p class="text-xs text-gray-500 mb-3 leading-relaxed">Lettura interna, senza AI e senza chiave: il file non esce dal dispositivo. Per copioni PDF con testo selezionabile e orari nella colonna di sinistra (es. "21.14’ (3’)"). Le righe restano modificabili.</p>
+        <label for="import-pdf-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-5 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
+          <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+          <span id="import-pdf-label" class="text-sm font-medium text-gray-700">Carica PDF</span>
+          <span class="text-xs text-gray-400">Solo PDF</span>
+        </label>
+        <input type="file" id="import-pdf-input" accept="application/pdf,.pdf" class="hidden" />
+        <p id="import-pdf-status" class="text-xs mt-2 hidden"></p>
+      </section>
+
+      <!-- Import AI (foto) -->
+      <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+        <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa foto con AI</h2>
+        <p class="text-xs text-gray-500 mb-3 leading-relaxed">La foto viene inviata all'AI esterna scelta nelle impostazioni (OpenAI, Claude o Gemini) con la tua chiave API. Va bene anche per un PDF scansionato. Le righe restano modificabili.</p>
 
         <label for="import-file-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-6 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
           <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L21 15M4 8h.01M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
-          <span class="text-sm font-medium text-gray-700">Carica immagine o PDF</span>
-          <span class="text-xs text-gray-400">JPG, PNG oppure PDF</span>
+          <span class="text-sm font-medium text-gray-700">Carica foto</span>
+          <span class="text-xs text-gray-400">JPG, PNG (o PDF scansionato)</span>
         </label>
         <input type="file" id="import-file-input" accept="image/*,application/pdf" class="hidden" />
         <div id="import-file-name" class="text-xs text-gray-500 mt-2 hidden"></div>
@@ -876,7 +889,7 @@ function updateImportProviderLabel(){
     btnLabel.textContent = 'Modifica chiave API';
   } else {
     el.textContent = 'Nessuna chiave API configurata';
-    hint.textContent = 'Per le foto e i PDF senza orari leggibili inserisci la tua chiave personale OpenAI, Anthropic o Google (Gemini). Resta salvata solo su questo dispositivo.';
+    hint.textContent = 'Per importare le foto con l\'AI inserisci la tua chiave personale OpenAI, Anthropic o Google (Gemini). Resta salvata solo su questo dispositivo.';
     box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-amber-200 bg-amber-50 text-amber-900';
     btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-accent hover:bg-accent-soft text-ink';
     btnLabel.textContent = 'Inserisci la tua chiave API';
@@ -1709,7 +1722,7 @@ function parseScriptPages(pages){
   });
 }
 function parseScriptPdf(file){
-  if(!window.pdfjsLib) return Promise.resolve([]);
+  if(!window.pdfjsLib) return Promise.reject(new Error('Libreria PDF non disponibile'));
   try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){}
   return file.arrayBuffer().then(function(buf){
     return window.pdfjsLib.getDocument({ data: buf }).promise;
@@ -1720,24 +1733,30 @@ function runExtraction(){
   if(!pendingFile) return;
   var file = pendingFile;
   var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  if(!settings.apiKey){ toast('Per l\'import con AI serve la chiave API nelle impostazioni.', 'error'); openSettingsModal(); return; }
   setImportLoading(true);
-  var local = isPdf ? parseScriptPdf(file).catch(function(err){ console.error(err); return []; }) : Promise.resolve([]);
-  local.then(function(items){
-    // Almeno due blocchi con orario: il copione è stato letto senza AI, nessuna chiave necessaria.
-    if(items.length >= 2){
+  aiExtraction(file, isPdf);
+}
+
+// Import PDF interno: nessuna chiamata esterna, il file resta sul dispositivo.
+function runPdfImport(file){
+  var label = document.getElementById('import-pdf-label');
+  var statusEl = document.getElementById('import-pdf-status');
+  statusEl.classList.add('hidden');
+  label.textContent = 'Lettura in corso…';
+  parseScriptPdf(file).catch(function(err){ console.error(err); return null; }).then(function(items){
+    label.textContent = 'Carica PDF';
+    if(items && items.length >= 2){
       applyImportedItems(items);
-      toast(items.length + ' interventi letti dal PDF (senza AI).', 'success');
-      document.getElementById('import-status').classList.add('hidden');
-      setImportLoading(false);
+      toast(items.length + ' interventi letti dal PDF.', 'success');
+      statusEl.textContent = file.name + ': ' + items.length + ' interventi importati.';
+      statusEl.className = 'text-xs mt-2 text-emerald-600';
       return;
     }
-    if(!settings.apiKey){
-      setImportLoading(false);
-      toast(isPdf ? 'In questo PDF non ho trovato orari da leggere da solo: serve la chiave API per l\'AI.' : 'Per le immagini serve la chiave API nelle impostazioni.', 'error');
-      openSettingsModal();
-      return;
-    }
-    aiExtraction(file, isPdf);
+    statusEl.textContent = items === null
+      ? 'Impossibile leggere il PDF (verifica la connessione internet la prima volta, serve per caricare il lettore PDF).'
+      : 'In questo PDF non ho trovato orari da leggere (forse è una scansione o ha un formato diverso). Puoi usare "Importa foto con AI" qui sotto.';
+    statusEl.className = 'text-xs mt-2 text-red-600';
   });
 }
 
@@ -2055,6 +2074,11 @@ function wireEvents(){
     }
   });
   document.getElementById('import-extract-btn').addEventListener('click', runExtraction);
+  document.getElementById('import-pdf-input').addEventListener('change', function(e){
+    var f = e.target.files && e.target.files[0];
+    e.target.value = '';
+    if(f) runPdfImport(f);
+  });
   document.getElementById('import-open-settings').addEventListener('click', openSettingsModal);
 }
 
