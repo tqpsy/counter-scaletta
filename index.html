@@ -1217,6 +1217,48 @@ function buildExtractionPrompt(){
 function safeReadJson(res){
   return res.json().catch(function(){ return null; });
 }
+
+// Errori temporanei lato provider (sovraccarico / troppe richieste): si riprova in automatico.
+var RETRYABLE_STATUS = [429, 500, 502, 503, 504, 529];
+var RETRY_DELAYS_MS = [3000, 6000, 12000];
+function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
+function fetchWithRetry(url, opts){
+  var attempt = 0;
+  function run(){
+    return fetch(url, opts).then(function(res){
+      if(res.ok || RETRYABLE_STATUS.indexOf(res.status) === -1 || attempt >= RETRY_DELAYS_MS.length) return res;
+      var delay = RETRY_DELAYS_MS[attempt];
+      var ra = parseFloat(res.headers.get('retry-after'));
+      if(!isNaN(ra) && ra > 0){ delay = Math.min(20000, Math.max(delay, ra * 1000)); }
+      attempt++;
+      setImportProgress('Servizio occupato, nuovo tentativo ' + attempt + '/' + RETRY_DELAYS_MS.length + '…');
+      return sleep(delay).then(run);
+    }, function(){
+      throw apiError(0, 'impossibile contattare il provider (verifica la connessione internet).');
+    });
+  }
+  return run();
+}
+function apiError(status, msg){ var e = new Error(msg); e.status = status; return e; }
+// Messaggi comprensibili per i codici HTTP più comuni.
+function throwApiError(providerLabel, res){
+  return safeReadJson(res).then(function(body){
+    var raw = body && body.error && body.error.message ? body.error.message : res.statusText;
+    var st = res.status, msg;
+    if(st === 503 || st === 529 || st === 500 || st === 502 || st === 504){
+      msg = 'Il servizio ' + providerLabel + ' è momentaneamente sovraccarico (' + st + '). Non dipende dalla tua chiave né dal file: riprova tra qualche minuto.';
+    } else if(st === 429){
+      msg = 'Limite di utilizzo ' + providerLabel + ' raggiunto (429). Attendi un minuto e riprova; se persiste, hai esaurito la quota giornaliera o il credito. Dettaglio: ' + raw;
+    } else if(st === 401 || st === 403){
+      msg = 'Chiave API ' + providerLabel + ' non valida o non autorizzata (' + st + '). Controllala nelle impostazioni.';
+    } else if(st === 404){
+      msg = 'Modello non trovato su ' + providerLabel + ' (404): controlla il campo "Modello" nelle impostazioni. Dettaglio: ' + raw;
+    } else {
+      msg = 'Errore API ' + providerLabel + ' (' + st + '): ' + raw;
+    }
+    throw apiError(st, msg);
+  });
+}
 function parseAIJson(text){
   if(!text){ throw new Error('Risposta vuota dal modello AI.'); }
   var cleaned = text.trim();
@@ -1236,7 +1278,7 @@ function parseAIJson(text){
 function callOpenAIVision(images, instruction){
   var content = [{ type: 'text', text: instruction }];
   images.forEach(function(img){ content.push({ type: 'image_url', image_url: { url: img } }); });
-  return fetch('https://api.openai.com/v1/chat/completions', {
+  return fetchWithRetry('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
     body: JSON.stringify({
@@ -1249,12 +1291,7 @@ function callOpenAIVision(images, instruction){
       max_tokens: 4000
     })
   }).then(function(res){
-    if(!res.ok){
-      return safeReadJson(res).then(function(errBody){
-        var msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : res.statusText;
-        throw new Error('Errore API OpenAI (' + res.status + '): ' + msg);
-      });
-    }
+    if(!res.ok){ return throwApiError('OpenAI', res); }
     return res.json();
   }).then(function(data){
     var text = data.choices && data.choices[0] && data.choices[0].message ? data.choices[0].message.content : '';
@@ -1268,7 +1305,7 @@ function callAnthropicVision(images, instruction){
     if(match){ content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }); }
   });
   content.push({ type: 'text', text: instruction + ' Rispondi SOLO con JSON valido, senza alcun testo prima o dopo, senza blocchi di codice markdown.' });
-  return fetch('https://api.anthropic.com/v1/messages', {
+  return fetchWithRetry('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -1282,12 +1319,7 @@ function callAnthropicVision(images, instruction){
       messages: [ { role: 'user', content: content } ]
     })
   }).then(function(res){
-    if(!res.ok){
-      return safeReadJson(res).then(function(errBody){
-        var msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : res.statusText;
-        throw new Error('Errore API Anthropic (' + res.status + '): ' + msg);
-      });
-    }
+    if(!res.ok){ return throwApiError('Anthropic', res); }
     return res.json();
   }).then(function(data){
     if(data.stop_reason === 'refusal'){ throw new Error('Il modello ha rifiutato la richiesta.'); }
@@ -1299,6 +1331,7 @@ function callAnthropicVision(images, instruction){
 }
 
 var GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+var GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest';
 function callGeminiVision(images, instruction){
   var parts = [{ text: instruction }];
   images.forEach(function(img){
@@ -1306,21 +1339,25 @@ function callGeminiVision(images, instruction){
     if(match){ parts.push({ inline_data: { mime_type: match[1], data: match[2] } }); }
   });
   var model = (settings.model || defaultModelFor('gemini')).replace(/^models\//, '');
-  return fetch(GEMINI_BASE + '/models/' + encodeURIComponent(model) + ':generateContent', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', 'x-goog-api-key': settings.apiKey },
-    body: JSON.stringify({
-      contents: [ { role: 'user', parts: parts } ],
-      generationConfig: { responseMimeType: 'application/json' }
-    })
-  }).then(function(res){
-    if(!res.ok){
-      return safeReadJson(res).then(function(errBody){
-        var msg = errBody && errBody.error && errBody.error.message ? errBody.error.message : res.statusText;
-        throw new Error('Errore API Google Gemini (' + res.status + '): ' + msg);
-      });
-    }
-    return res.json();
+  var body = JSON.stringify({
+    contents: [ { role: 'user', parts: parts } ],
+    generationConfig: { responseMimeType: 'application/json' }
+  });
+  function request(m){
+    return fetchWithRetry(GEMINI_BASE + '/models/' + encodeURIComponent(m) + ':generateContent', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': settings.apiKey },
+      body: body
+    }).then(function(res){
+      if(!res.ok){ return throwApiError('Google Gemini', res); }
+      return res.json();
+    });
+  }
+  return request(model).catch(function(err){
+    // Se il modello è sovraccarico anche dopo i tentativi, prova una volta un modello di riserva.
+    if(err.status !== 503 || model === GEMINI_FALLBACK_MODEL) throw err;
+    setImportProgress('Modello occupato, provo il modello di riserva…');
+    return request(GEMINI_FALLBACK_MODEL).catch(function(){ throw err; });
   }).then(function(data){
     if(data.promptFeedback && data.promptFeedback.blockReason){ throw new Error('Richiesta bloccata da Gemini (' + data.promptFeedback.blockReason + ').'); }
     var cand = data.candidates && data.candidates[0];
@@ -1369,6 +1406,10 @@ function setImportLoading(loading){
   document.getElementById('import-extract-label').textContent = loading ? 'Estrazione in corso…' : 'Estrai con AI';
   document.getElementById('import-extract-btn').disabled = loading || !pendingFile;
   if(loading){ document.getElementById('import-status').classList.add('hidden'); }
+}
+function setImportProgress(msg){
+  var label = document.getElementById('import-extract-label');
+  if(label) label.textContent = msg;
 }
 function showImportError(msg){
   var statusEl = document.getElementById('import-status');
