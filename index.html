@@ -85,6 +85,8 @@
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
   .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
   .hidden-important { display: none !important; }
+  /* Anteprime nella dashboard: il display gira a 1920x1080 e viene rimpicciolito. */
+  .preview-frame { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
   #import-panel > summary::-webkit-details-marker { display: none; }
   /* Scaletta sul telefono: ogni riga della tabella diventa una scheda. */
   @media (max-width: 767px) {
@@ -119,7 +121,7 @@
 <div id="dashboard-root">
 
   <header class="sticky top-0 z-30 bg-ink text-white border-b border-white/10">
-    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+    <div class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
       <img id="header-logo" src="" alt="Logo evento" class="h-10 w-10 rounded-lg object-contain bg-white/5 shrink-0 hidden" />
       <div id="header-logo-placeholder" class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center text-accent shrink-0">
         <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></svg>
@@ -129,15 +131,15 @@
           class="bg-transparent font-display text-lg sm:text-xl font-semibold tracking-tight w-full focus:outline-none border-b border-transparent focus:border-accent/60 truncate py-0.5" />
         <p class="text-xs text-white/45 font-mono-time" id="header-clock">--:--:--</p>
       </div>
-      <button id="open-both-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0" title="Apre Stage Display e Countdown insieme">
+      <button id="open-both-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0" title="Apre Stage Display e Countdown insieme">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
         Apri entrambi
       </button>
-      <button id="open-countdown-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0">
+      <button id="open-countdown-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
         Apri Countdown
       </button>
-      <button id="open-stage-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-accent text-ink text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-accent-soft transition-colors shrink-0">
+      <button id="open-stage-btn" type="button" class="hidden sm:inline-flex xl:hidden items-center gap-2 bg-accent text-ink text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-accent-soft transition-colors shrink-0">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
         Apri Stage Display
       </button>
@@ -161,13 +163,15 @@
     </div>
   </header>
 
-  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
+  <!-- Su PC (da 1280 px) a destra c'è una colonna fissa con le anteprime dal vivo
+       di Stage e Countdown; le finestre separate restano per gli schermi estesi. -->
+  <main class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-6 xl:grid xl:grid-cols-[minmax(0,1fr)_400px] 2xl:grid-cols-[minmax(0,1fr)_520px] xl:gap-6 xl:items-start">
 
     <div class="min-w-0 flex flex-col gap-6">
 
       <!-- Pannello ON AIR -->
-      <section class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 shadow-sm">
-        <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+      <section class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 xl:px-7 xl:py-5 shadow-sm">
+        <div class="flex flex-wrap items-center justify-between gap-3 mb-4 xl:mb-3">
           <div class="flex items-center gap-2.5">
             <span id="onair-dot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
             <span id="onair-status" class="text-xs font-semibold tracking-wide text-white/60">IN ATTESA</span>
@@ -176,12 +180,15 @@
           <span id="delay-pill" class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-white/70">In orario</span>
         </div>
 
-        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 truncate">Nessun intervento attivo</p>
+        <!-- Su PC nome e timer stanno sulla stessa riga, così il pannello è più basso. -->
+        <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:mb-4">
+        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 xl:mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
 
-        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/60 mb-1">00:00</div>
-        <p id="onair-planned" class="text-xs text-white/40 mb-5"></p>
+        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
+        <p id="onair-planned" class="text-xs text-white/40 mb-5 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
+        </div>
 
-        <div class="flex flex-wrap items-center gap-2 mb-5">
+        <div class="flex flex-wrap items-center gap-2 mb-5 xl:mb-4">
           <button id="play-btn" type="button" disabled title="Play (barra spaziatrice)" class="inline-flex items-center gap-2 bg-emerald-500 hover:bg-emerald-400 disabled:opacity-30 disabled:cursor-not-allowed text-ink font-semibold text-sm px-4 py-2.5 rounded-lg transition-colors">
             <svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M8 5v14l11-7z"/></svg> Play
           </button>
@@ -247,25 +254,32 @@
         </div>
       </section>
 
-      <!-- Orario evento -->
-      <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-        <h2 class="font-display text-sm font-semibold text-gray-900 mb-3">Orario evento</h2>
-        <div class="grid grid-cols-2 gap-3 mb-3">
+      <!-- Orario evento: su PC viene spostato nella colonna di destra, sotto il Countdown. -->
+      <span id="event-time-home" class="hidden"></span>
+      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-6 xl:p-5 shadow-sm">
+        <h2 class="text-xs font-semibold tracking-wide text-white/60 mb-3">ORARIO EVENTO</h2>
+        <div class="grid grid-cols-2 gap-3 mb-4">
           <div>
-            <label class="text-xs text-gray-500 block mb-1" for="event-start-input">Inizio</label>
-            <input type="time" id="event-start-input" value="09:00" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none" />
+            <label class="text-xs text-white/50 block mb-1" for="event-start-input">Inizio</label>
+            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
           </div>
           <div>
-            <label class="text-xs text-gray-500 block mb-1" for="event-end-input">Fine desiderata</label>
-            <input type="time" id="event-end-input" value="18:00" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 focus:outline-none" />
+            <label class="text-xs text-white/50 block mb-1" for="event-end-input">Fine desiderata</label>
+            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
           </div>
         </div>
-        <div class="text-xs text-gray-500 space-y-1 mb-3">
-          <p>Fine prevista (piano): <span id="planned-finish" class="font-medium text-gray-700 font-mono-time">--:--</span></p>
-          <p>Stima fine reale: <span id="live-finish-estimate" class="font-medium text-gray-700 font-mono-time">--:--</span></p>
-          <p id="end-diff" class="text-xs text-gray-500"></p>
+        <div class="grid grid-cols-2 gap-3 mb-2">
+          <div>
+            <p class="text-xs text-white/50">Fine prevista (piano)</p>
+            <p id="planned-finish" class="font-mono-time text-2xl font-semibold text-white/80">--:--</p>
+          </div>
+          <div>
+            <p class="text-xs text-white/50">Stima fine reale</p>
+            <p id="live-finish-estimate" class="font-mono-time text-2xl font-semibold text-white">--:--</p>
+          </div>
         </div>
-        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 border border-gray-200 hover:border-accent hover:text-accent text-gray-700 text-sm font-medium py-2.5 rounded-lg transition-colors">
+        <p id="end-diff" class="text-xs text-white/50 mb-4"></p>
+        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
           Adatta scaletta al nuovo orario di fine
         </button>
       </section>
@@ -334,9 +348,37 @@
 
     </div>
 
+    <aside id="preview-col" class="hidden xl:block xl:self-stretch">
+      <!-- Lo Stage è già riassunto dal pannello ON AIR: qui c'è solo il Countdown. -->
+      <div id="preview-stack" class="sticky top-[90px] max-h-[calc(100vh-106px)] overflow-y-auto flex flex-col gap-4">
+        <div class="grid grid-cols-2 gap-2">
+          <button type="button" data-open="stage" class="preview-open inline-flex items-center justify-center gap-2 bg-accent hover:bg-accent-soft text-ink text-sm font-semibold px-3 py-2.5 rounded-lg transition-colors">
+            <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+            Apri Stage
+          </button>
+          <button type="button" data-open="both" class="preview-open inline-flex items-center justify-center gap-2 bg-ink hover:bg-ink/90 text-white text-sm font-semibold px-3 py-2.5 rounded-lg transition-colors">
+            <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
+            Apri entrambi
+          </button>
+        </div>
+        <div class="bg-white rounded-xl border border-gray-200 p-3">
+          <div class="flex items-center justify-between gap-2 mb-2">
+            <h2 class="font-display text-sm font-semibold text-gray-900">Countdown</h2>
+            <button type="button" data-open="countdown" class="preview-open inline-flex items-center gap-1.5 text-xs font-semibold text-gray-600 hover:text-accent px-2 py-1 rounded-md transition-colors">
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
+              Apri finestra
+            </button>
+          </div>
+          <div class="preview-box relative aspect-video rounded-lg overflow-hidden bg-black">
+            <iframe class="preview-frame" data-query="?countdown=1&amp;embed=1" title="Anteprima Countdown" tabindex="-1" aria-hidden="true"></iframe>
+          </div>
+        </div>
+      </div>
+    </aside>
+
   </main>
 
-  <footer class="max-w-5xl mx-auto px-4 sm:px-6 pb-8 pt-2">
+  <footer class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 pb-8 pt-2">
     <p class="text-[11px] text-gray-400">Regia Tempi — applicazione client-side, nessun dato lascia questo browser eccetto le chiamate dirette alle API AI selezionate per l'importazione della scaletta.</p>
   </footer>
 </div>
@@ -510,6 +552,8 @@ var targetIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke
 var params = new URLSearchParams(window.location.search);
 var isStage = params.get('stage') === '1';
 var isCountdown = params.get('countdown') === '1';
+// Display dentro l'anteprima della dashboard: niente schermo intero né schermo sempre acceso.
+var isEmbed = params.get('embed') === '1';
 
 function renderActive(){
   if(isStage){ renderStage(); }
@@ -779,6 +823,12 @@ function parseDuration(text){
   var n = parts.map(function(p){ return parseInt(p, 10); });
   var sec = parts.length === 3 ? n[0]*3600 + n[1]*60 + n[2] : (parts.length === 2 ? n[0]*60 + n[1] : n[0]*60);
   return sec > 0 ? sec / 60 : null;
+}
+// Minuti in ore e minuti: "45 min", "2 h", "6 h 8 min".
+function hoursMinutesLabel(minutes){
+  var m = Math.round(Math.abs(minutes));
+  if(m < 60) return m + ' min';
+  return Math.floor(m / 60) + ' h' + (m % 60 ? ' ' + (m % 60) + ' min' : '');
 }
 // Parti ore/minuti/secondi dei tre campi della durata.
 function durationParts(minutes){
@@ -1166,7 +1216,7 @@ function renderDashboard(){
     statusEl.textContent = 'TERMINATO';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/40 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = '—';
     plannedEl.textContent = '';
@@ -1175,7 +1225,7 @@ function renderDashboard(){
     statusEl.textContent = 'IN ATTESA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums text-white/60 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = total > 0 ? state.schedule[0].speaker : '—';
     plannedEl.textContent = '';
@@ -1187,7 +1237,7 @@ function renderDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     typeBadgeEl.classList.remove('hidden');
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
     typeBadgeEl.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ' + (cur.type === 'flex' ? 'bg-sky-400/15 text-sky-300' : 'bg-violet-400/15 text-violet-300');
@@ -1262,13 +1312,13 @@ function updateFinishEstimate(){
     endDiffEl.textContent = '';
   } else if(Math.abs(endDiff) < 1){
     endDiffEl.textContent = 'In linea con l\'orario di fine.';
-    endDiffEl.className = 'text-xs text-gray-500';
+    endDiffEl.className = 'text-xs text-white/50 mb-4';
   } else if(endDiff < 0){
-    endDiffEl.textContent = 'Sforamento previsto di ' + Math.round(Math.abs(endDiff)) + ' min oltre la fine desiderata.';
-    endDiffEl.className = 'text-xs text-red-600 font-medium';
+    endDiffEl.textContent = 'Sforamento previsto di ' + hoursMinutesLabel(endDiff) + ' oltre la fine desiderata.';
+    endDiffEl.className = 'text-xs text-red-400 font-medium mb-4';
   } else {
-    endDiffEl.textContent = 'Margine di ' + Math.round(endDiff) + ' min prima della fine desiderata.';
-    endDiffEl.className = 'text-xs text-emerald-600 font-medium';
+    endDiffEl.textContent = 'Margine di ' + hoursMinutesLabel(endDiff) + ' prima della fine desiderata.';
+    endDiffEl.className = 'text-xs text-emerald-400 font-medium mb-4';
   }
 }
 
@@ -1392,7 +1442,7 @@ function tickDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     var effCell = document.querySelector('#schedule-tbody [data-eff="' + state.currentIndex + '"]');
     if(effCell){
       var elapsed = getItemElapsedSeconds(state.currentIndex);
@@ -2383,6 +2433,10 @@ function toggleFullscreen(){
   }
 }
 function setupDisplayControls(root){
+  // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
+  window.addEventListener('resize', function(){ lastFitText = null; });
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+  if(isEmbed) return;
   var btn = document.getElementById('disp-fs-btn');
   var canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
   if(canFullscreen){
@@ -2410,9 +2464,44 @@ function setupDisplayControls(root){
   ['mousemove', 'pointerdown', 'keydown'].forEach(function(evt){ document.addEventListener(evt, wake); });
   wake();
   document.addEventListener('visibilitychange', requestWakeLock);
-  // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
-  window.addEventListener('resize', function(){ lastFitText = null; });
-  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+}
+
+// Le anteprime si caricano solo quando la colonna è visibile (da 1280 px),
+// così su telefono e tablet non girano due display nascosti.
+function setupPreviews(){
+  var col = document.getElementById('preview-col');
+  var frames = col.querySelectorAll('.preview-frame');
+  var base = window.location.href.split('#')[0].split('?')[0];
+  var mq = window.matchMedia ? window.matchMedia('(min-width: 1280px)') : null;
+  function fit(){
+    Array.prototype.forEach.call(frames, function(f){
+      var w = f.parentNode.clientWidth;
+      if(w) f.style.transform = 'scale(' + (w / 1920) + ')';
+    });
+  }
+  var timePanel = document.getElementById('event-time-panel');
+  var timeHome = document.getElementById('event-time-home');
+  var stack = document.getElementById('preview-stack');
+  function sync(){
+    var on = !mq || mq.matches;
+    if(on && timePanel.parentNode !== stack){ stack.appendChild(timePanel); }
+    else if(!on && timePanel.parentNode === stack){ timeHome.parentNode.insertBefore(timePanel, timeHome); }
+    Array.prototype.forEach.call(frames, function(f){
+      if(on && !f.getAttribute('src')){ f.setAttribute('src', base + f.dataset.query); }
+      else if(!on && f.getAttribute('src')){ f.removeAttribute('src'); }
+    });
+    fit();
+  }
+  if(mq){
+    if(mq.addEventListener){ mq.addEventListener('change', sync); }
+    else if(mq.addListener){ mq.addListener(sync); }
+  }
+  window.addEventListener('resize', fit);
+  sync();
+  Array.prototype.forEach.call(col.querySelectorAll('.preview-open'), function(btn){
+    var open = btn.dataset.open;
+    btn.addEventListener('click', open === 'stage' ? openStage : open === 'countdown' ? openCountdown : openBoth);
+  });
 }
 
 /* ---------------------------------------------------------------- */
@@ -2667,6 +2756,7 @@ function init(){
   } else {
     document.getElementById('dashboard-root').classList.remove('hidden');
     setImportPanelOpen(state.schedule.length === 0);
+    setupPreviews();
   }
 
   wireEvents();
@@ -2712,7 +2802,7 @@ document.getElementById('install-app-btn').addEventListener('click', function(){
 });
 
 // Service worker: permette di riaprire dashboard e Stage Display anche offline.
-if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isEmbed){
   window.addEventListener('load', function(){
     navigator.serviceWorker.register('sw.js').catch(function(){});
   });
