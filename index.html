@@ -26,30 +26,12 @@
 })();
 </script>
 
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  if(window.tailwind) tailwind.config = {
-    theme: {
-      extend: {
-        colors: {
-          ink: '#10131A',
-          panel: '#1A2030',
-          accent: { DEFAULT: '#E8A33D', soft: '#F5CD8C' }
-        },
-        fontFamily: {
-          display: ['"Space Grotesk"', 'Inter', 'system-ui', 'sans-serif'],
-          mono: ['"JetBrains Mono"', '"IBM Plex Mono"', 'ui-monospace', 'monospace']
-        }
-      }
-    }
-  };
-</script>
+<link rel="stylesheet" href="app.css" />
+<link rel="manifest" href="manifest.webmanifest" />
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 
 <style>
   html { -webkit-tap-highlight-color: transparent; }
@@ -1171,12 +1153,33 @@ function downscaleDataURL(dataUrl, maxSide, mime, quality){
     img.src = dataUrl;
   });
 }
+// pdf.js serve solo per importare un PDF: viene scaricato alla prima richiesta
+// invece che a ogni apertura della pagina (Stage e Countdown compresi).
+var PDFJS_BASE = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+var pdfjsPromise = null;
+function loadPdfJs(){
+  if(window.pdfjsLib){ return Promise.resolve(window.pdfjsLib); }
+  if(pdfjsPromise){ return pdfjsPromise; }
+  pdfjsPromise = new Promise(function(resolve, reject){
+    var script = document.createElement('script');
+    script.src = PDFJS_BASE + 'pdf.min.js';
+    script.onload = function(){
+      if(!window.pdfjsLib){ reject(new Error('pdf.js non inizializzato')); return; }
+      try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_BASE + 'pdf.worker.min.js'; }catch(e){}
+      resolve(window.pdfjsLib);
+    };
+    script.onerror = function(){ reject(new Error('download fallito')); };
+    document.head.appendChild(script);
+  }).catch(function(){
+    pdfjsPromise = null;
+    throw new Error('Libreria di lettura PDF non disponibile (verifica la connessione internet).');
+  });
+  return pdfjsPromise;
+}
 function pdfToImages(file){
-  if(!window.pdfjsLib){ return Promise.reject(new Error('Libreria di lettura PDF non disponibile (verifica la connessione internet).')); }
-  try{
-    window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-  }catch(e){}
-  return file.arrayBuffer().then(function(arrayBuffer){
+  return loadPdfJs().then(function(){
+    return file.arrayBuffer();
+  }).then(function(arrayBuffer){
     return window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
   }).then(function(pdf){
     var maxPages = Math.min(pdf.numPages, 5);
@@ -1674,6 +1677,13 @@ if(document.readyState === 'loading'){
   document.addEventListener('DOMContentLoaded', init);
 } else {
   init();
+}
+
+// Service worker: permette di riaprire dashboard e Stage Display anche offline.
+if('serviceWorker' in navigator && /^https?:$/.test(location.protocol)){
+  window.addEventListener('load', function(){
+    navigator.serviceWorker.register('sw.js').catch(function(){});
+  });
 }
 
 })();
