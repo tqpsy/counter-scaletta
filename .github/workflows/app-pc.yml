@@ -1,0 +1,78 @@
+# Costruisce il programma per Windows (cartella desktop/) e lo pubblica nelle
+# Release di GitHub, da dove si scarica con il link nelle impostazioni dell'app.
+# Parte da solo quando cambiano i file dell'app su main, oppure a mano da
+# Actions → "App per PC" → Run workflow.
+name: App per PC
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - index.html
+      - app.css
+      - manifest.webmanifest
+      - icon.svg
+      - vendor/**
+      - server/regia-server.js
+      - desktop/**
+      - .github/workflows/app-pc.yml
+  # Nelle PR si costruisce e basta: il file si scarica dagli Artifacts del run.
+  pull_request:
+    paths:
+      - desktop/**
+      - server/regia-server.js
+      - .github/workflows/app-pc.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: app-pc-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - name: Installa Electron
+        working-directory: desktop
+        run: npm ci
+      - name: Costruisci installer e versione portatile
+        working-directory: desktop
+        run: npm run dist
+      - name: Allega i file al run
+        uses: actions/upload-artifact@v4
+        with:
+          name: regia-tempi-windows
+          path: |
+            desktop/dist/Regia-Tempi-Setup.exe
+            desktop/dist/Regia-Tempi-Portable.exe
+      - name: Versione
+        if: github.event_name != 'pull_request'
+        id: version
+        shell: bash
+        run: echo "version=$(node -p "require('./desktop/package.json').version")" >> "$GITHUB_OUTPUT"
+      - name: Pubblica nella Release
+        if: github.event_name != 'pull_request'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: pc-v${{ steps.version.outputs.version }}
+          name: Regia Tempi per Windows ${{ steps.version.outputs.version }}
+          make_latest: true
+          overwrite_files: true
+          body: |
+            **Regia-Tempi-Setup.exe**: installa il programma (icona sul desktop e nel menu Start).
+            **Regia-Tempi-Portable.exe**: si avvia senza installare, per esempio da una chiavetta USB.
+
+            Windows può mostrare l'avviso "PC protetto" perché il programma non è firmato: clic su "Ulteriori informazioni" e poi "Esegui comunque".
+            Aggiornato all'ultima versione di main (${{ github.sha }}).
+          files: |
+            desktop/dist/Regia-Tempi-Setup.exe
+            desktop/dist/Regia-Tempi-Portable.exe
