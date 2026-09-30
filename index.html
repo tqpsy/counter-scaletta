@@ -28,7 +28,7 @@
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script>
-  tailwind.config = {
+  if(window.tailwind) tailwind.config = {
     theme: {
       extend: {
         colors: {
@@ -223,7 +223,14 @@
           <span id="import-extract-label">Estrai con AI</span>
         </button>
         <p id="import-status" class="text-xs mt-2 hidden"></p>
-        <p class="text-[11px] text-gray-400 mt-3 leading-relaxed">Provider: <span id="import-provider-label" class="font-medium text-gray-600">—</span> · <button type="button" id="import-open-settings" class="underline hover:text-gray-600">configura chiave API</button></p>
+        <div id="import-key-box" class="mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+          <p id="import-provider-label" class="font-medium">—</p>
+          <p id="import-key-hint" class="mt-0.5"></p>
+          <button type="button" id="import-open-settings" class="mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors">
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M19 4l2 2"/></svg>
+            <span id="import-open-settings-label">Inserisci la tua chiave API</span>
+          </button>
+        </div>
       </section>
 
       <!-- Orario evento -->
@@ -299,7 +306,7 @@
 
   <div class="flex-1 flex flex-col items-center justify-center text-center px-6 gap-3 sm:gap-4">
     <p id="countdown-event-title" class="font-display text-xl sm:text-3xl font-semibold text-white/80 px-4 max-w-[90vw] truncate"></p>
-    <p id="countdown-status" class="text-sm sm:base font-semibold tracking-wide text-accent"></p>
+    <p id="countdown-status" class="text-sm sm:text-base font-semibold tracking-wide text-accent"></p>
     <div id="countdown-timer" class="font-mono-time stage-timer-size font-semibold tabular-nums text-accent">00:00:00</div>
     <p id="countdown-target-label" class="text-sm sm:text-lg text-white/45"></p>
   </div>
@@ -340,9 +347,24 @@
         </select>
         <label class="text-xs text-gray-500 block mb-1" for="settings-model">Modello</label>
         <input type="text" id="settings-model" placeholder="es. gpt-4o" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 mb-3 font-mono-time focus:outline-none" />
-        <label class="text-xs text-gray-500 block mb-1" for="settings-apikey">Chiave API</label>
-        <input type="password" id="settings-apikey" placeholder="sk-..." autocomplete="off" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 font-mono-time focus:outline-none" />
-        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">La chiave viene salvata solo nel localStorage di questo browser e usata per chiamare direttamente l'API del provider scelto. Non transita da nessun server terzo.</p>
+        <label class="text-xs text-gray-500 block mb-1" for="settings-apikey">La tua chiave API</label>
+        <div class="flex items-stretch gap-2">
+          <input type="password" id="settings-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" class="min-w-0 flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 font-mono-time focus:outline-none" />
+          <button id="settings-apikey-toggle" type="button" class="shrink-0 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-2.5 rounded-lg transition-colors" aria-label="Mostra o nascondi la chiave">Mostra</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <button id="settings-verify-btn" type="button" class="inline-flex items-center gap-2 text-xs font-semibold border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">
+            <span id="settings-verify-spinner" class="hidden w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin"></span>
+            Verifica chiave
+          </button>
+          <span id="settings-verify-status" class="text-xs"></span>
+        </div>
+        <div class="mt-3 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 text-[11px] text-gray-500 leading-relaxed">
+          <p class="font-semibold text-gray-600 mb-1">Come ottenere una chiave</p>
+          <p id="settings-key-help"></p>
+          <p class="mt-1">L'uso dell'API è a pagamento e viene addebitato sull'account di chi possiede la chiave.</p>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">La chiave viene salvata solo nel localStorage di questo browser e usata per chiamare direttamente l'API del provider scelto. Non transita da nessun server terzo. Non usarla su computer condivisi o pubblici.</p>
         <button id="settings-clear-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 mt-2 transition-colors">Rimuovi chiave salvata</button>
       </div>
 
@@ -398,11 +420,19 @@ function defaultState(){
     schedule: [],
     currentIndex: -1,
     running: false,
-    activeStartEpoch: null
+    activeStartEpoch: null,
+    recoveredSeconds: 0
   };
 }
 function defaultSettings(){
   return { provider: 'openai', apiKey: '', model: 'gpt-4o' };
+}
+function defaultModelFor(provider){
+  return provider === 'openai' ? 'gpt-4o' : 'claude-opus-5-5';
+}
+function firstPendingIndex(){
+  for(var i=0;i<state.schedule.length;i++){ if(state.schedule[i].status !== 'done') return i; }
+  return -1;
 }
 
 function loadState(){
@@ -412,8 +442,15 @@ function loadState(){
   }catch(e){}
   return defaultState();
 }
+var saveErrorShown = false;
 function saveState(){
-  try{ localStorage.setItem(LS_STATE_KEY, JSON.stringify(state)); }catch(e){}
+  try{ localStorage.setItem(LS_STATE_KEY, JSON.stringify(state)); saveErrorShown = false; }
+  catch(e){
+    if(!saveErrorShown && !isStage && !isCountdown){
+      saveErrorShown = true;
+      toast('Impossibile salvare i dati in locale (spazio esaurito?). Prova a rimuovere o sostituire il logo con uno più leggero.', 'error');
+    }
+  }
 }
 function loadSettings(){
   try{
@@ -505,9 +542,9 @@ function nowSecondsSinceMidnight(){
   return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds();
 }
 function escapeHtml(str){
-  var div = document.createElement('div');
-  div.textContent = str == null ? '' : String(str);
-  return div.innerHTML;
+  return (str == null ? '' : String(str))
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
 /* ---------------------------------------------------------------- */
@@ -534,7 +571,7 @@ function getTotalDelaySeconds(){
   if(state.currentIndex >= 0 && state.currentIndex < state.schedule.length){
     var cur = state.schedule[state.currentIndex];
     if(cur && cur.status === 'active'){
-      total += getItemElapsedSeconds(state.currentIndex) - cur.duration*60;
+      total += Math.max(0, getItemElapsedSeconds(state.currentIndex) - cur.duration*60);
     }
   }
   return total;
@@ -545,7 +582,11 @@ function getTotalDelaySeconds(){
 /* ---------------------------------------------------------------- */
 function actionPlay(){
   if(state.schedule.length === 0){ toast('Aggiungi almeno un intervento alla scaletta prima di avviare.', 'error'); return; }
-  if(state.currentIndex === -1 || state.currentIndex >= state.schedule.length){ state.currentIndex = 0; }
+  if(state.currentIndex === -1 || state.currentIndex >= state.schedule.length){
+    var first = firstPendingIndex();
+    if(first === -1){ toast('Tutti gli interventi risultano conclusi. Seleziona un intervento da riprendere.', 'info'); return; }
+    state.currentIndex = first;
+  }
   var item = state.schedule[state.currentIndex];
   if(!item) return;
   item.status = 'active';
@@ -577,8 +618,10 @@ function actionReset(){
 function actionNext(){
   if(state.schedule.length === 0) return;
   if(state.currentIndex === -1){
-    state.currentIndex = 0;
-    state.schedule[0].status = 'active';
+    var first = firstPendingIndex();
+    if(first === -1) return;
+    state.currentIndex = first;
+    state.schedule[first].status = 'active';
     broadcastState();
     renderDashboard();
     return;
@@ -608,52 +651,42 @@ function actionNext(){
 function selectCurrent(idx){
   if(idx < 0 || idx >= state.schedule.length) return;
   if(state.running){ actionPause(); }
-  state.schedule.forEach(function(it,i){ if(it.status === 'active' && i !== idx){ it.status = 'pending'; } });
+  state.schedule.forEach(function(it,i){
+    if(it.status === 'active' && i !== idx){ it.status = it.accumulatedSeconds > 0 ? 'done' : 'pending'; }
+  });
   state.currentIndex = idx;
   state.schedule[idx].status = 'active';
   broadcastState();
   renderDashboard();
 }
 
+// Riduce i blocchi "flex" successivi a passi di 1 minuto (sempre dal blocco più lungo),
+// così le durate restano leggibili e il recupero non viene annullato dagli arrotondamenti.
 function redistributeFlex(overrunSeconds){
   if(overrunSeconds <= 0.5) return 0;
   var targets = state.schedule.filter(function(it, idx){ return idx > state.currentIndex && it.type === 'flex' && it.status !== 'done'; });
   if(targets.length === 0) return 0;
-  var originalTotalSec = targets.reduce(function(s,it){ return s + it.duration*60; }, 0);
-  var work = targets.map(function(it){ return it.duration*60; });
-  var remaining = overrunSeconds;
-  var activeIdxs = work.map(function(_,i){ return i; });
-  var guard = 0;
-  while(remaining > 0.5 && activeIdxs.length > 0 && guard < 50){
-    guard++;
-    var share = remaining / activeIdxs.length;
-    var progressed = false;
-    var nextActive = [];
-    for(var k=0;k<activeIdxs.length;k++){
-      var i = activeIdxs[k];
-      var available = work[i] - MIN_ITEM_SECONDS;
-      if(available <= 0.5) continue;
-      var take = Math.min(share, available, remaining);
-      if(take > 0.01){ work[i] -= take; remaining -= take; progressed = true; }
-      if(work[i] > MIN_ITEM_SECONDS + 0.5){ nextActive.push(i); }
-    }
-    activeIdxs = nextActive;
-    if(!progressed) break;
+  var minutesNeeded = Math.ceil((overrunSeconds - 0.5) / 60);
+  var minMinutes = MIN_ITEM_SECONDS / 60;
+  var appliedMin = 0;
+  while(appliedMin < minutesNeeded){
+    var best = null;
+    targets.forEach(function(it){
+      if(it.duration - 1 >= minMinutes && (!best || it.duration > best.duration)){ best = it; }
+    });
+    if(!best) break;
+    best.duration -= 1;
+    appliedMin += 1;
   }
-  var newTotalSec = 0;
-  targets.forEach(function(it, i){
-    var roundedMin = Math.max(1, Math.round(work[i]/60));
-    it.duration = roundedMin;
-    newTotalSec += roundedMin*60;
-  });
-  return Math.max(0, originalTotalSec - newTotalSec);
+  return appliedMin * 60;
 }
 
 function actionAutoBalance(){
   var delay = getTotalDelaySeconds();
-  var overrun = Math.max(0, delay);
-  if(overrun < 1){ toast('Nessuno sforamento da recuperare al momento.', 'info'); return; }
+  var overrun = Math.max(0, delay - (state.recoveredSeconds || 0));
+  if(overrun < 1){ toast(delay >= 1 ? 'Lo sforamento attuale è già stato recuperato.' : 'Nessuno sforamento da recuperare al momento.', 'info'); return; }
   var applied = redistributeFlex(overrun);
+  state.recoveredSeconds = (state.recoveredSeconds || 0) + applied;
   broadcastState();
   renderDashboard();
   if(applied < overrun - 1){
@@ -665,7 +698,9 @@ function actionAutoBalance(){
 function actionApplyEndTime(){
   var endMin = hhmmToMinutes(state.eventEnd);
   var nowMin = nowSecondsSinceMidnight() / 60;
-  var availableSec = Math.max(0, (endMin - nowMin)) * 60;
+  var diffMin = endMin - nowMin;
+  if(diffMin < -720){ diffMin += 1440; }
+  var availableSec = Math.max(0, diffMin) * 60;
   var remainingPlanned = 0;
   state.schedule.forEach(function(it, idx){
     if(state.currentIndex !== -1 && idx < state.currentIndex) return;
@@ -729,6 +764,7 @@ function clearSchedule(){
   state.currentIndex = -1;
   state.running = false;
   state.activeStartEpoch = null;
+  state.recoveredSeconds = 0;
   broadcastState();
   renderDashboard();
 }
@@ -759,10 +795,33 @@ function setFavicon(href){
   if(touch) touch.href = href;
 }
 
+function providerName(provider){ return provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)'; }
+function maskKey(key){ return key ? '••••' + key.slice(-4) : ''; }
+function guessProviderFromKey(key){
+  if(/^sk-ant-/.test(key)) return 'anthropic';
+  if(/^sk-/.test(key)) return 'openai';
+  return null;
+}
 function updateImportProviderLabel(){
   var el = document.getElementById('import-provider-label');
   if(!el) return;
-  el.textContent = (settings.provider === 'openai' ? 'OpenAI' : 'Anthropic') + (settings.apiKey ? ' (chiave configurata)' : ' (chiave NON configurata)');
+  var box = document.getElementById('import-key-box');
+  var hint = document.getElementById('import-key-hint');
+  var btn = document.getElementById('import-open-settings');
+  var btnLabel = document.getElementById('import-open-settings-label');
+  if(settings.apiKey){
+    el.textContent = 'Chiave API ' + providerName(settings.provider) + ' configurata (' + maskKey(settings.apiKey) + ')';
+    hint.textContent = 'Modello: ' + (settings.model || defaultModelFor(settings.provider));
+    box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-emerald-200 bg-emerald-50 text-emerald-800';
+    btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-white border border-emerald-200 hover:border-emerald-400 text-emerald-800';
+    btnLabel.textContent = 'Modifica chiave API';
+  } else {
+    el.textContent = 'Nessuna chiave API configurata';
+    hint.textContent = 'Per leggere la scaletta con l\'AI inserisci la tua chiave personale OpenAI o Anthropic. Resta salvata solo su questo dispositivo.';
+    box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-amber-200 bg-amber-50 text-amber-900';
+    btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-accent hover:bg-accent-soft text-ink';
+    btnLabel.textContent = 'Inserisci la tua chiave API';
+  }
 }
 
 function renderDashboard(){
@@ -826,17 +885,7 @@ function renderDashboard(){
   }
 
   var delay = getTotalDelaySeconds();
-  var delayEl = document.getElementById('delay-pill');
-  if(Math.abs(delay) < 1){
-    delayEl.textContent = 'In orario';
-    delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-white/70';
-  } else if(delay > 0){
-    delayEl.textContent = 'Ritardo ' + formatSecondsDelay(delay);
-    delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-300';
-  } else {
-    delayEl.textContent = 'Anticipo ' + formatSecondsDelay(delay);
-    delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300';
-  }
+  updateDelayPill(delay);
 
   var playBtn = document.getElementById('play-btn');
   var pauseBtn = document.getElementById('pause-btn');
@@ -847,14 +896,33 @@ function renderDashboard(){
   document.getElementById('reset-btn').disabled = !cur;
   document.getElementById('next-btn').disabled = noItems || finished;
 
+  updateFinishEstimate();
+  renderScheduleTable();
+}
+
+// Fine prevista (piano) = inizio + somma durate.
+// Stima fine reale: a evento in corso = ora attuale + residuo dell'intervento corrente + durate successive
+// (include pause e ritardi reali); prima dell'inizio = fine prevista.
+function updateFinishEstimate(){
+  var total = state.schedule.length;
   var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
   var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
   document.getElementById('planned-finish').textContent = minutesToHHMM(plannedFinishMin);
-  var liveEstimateMin = plannedFinishMin + Math.max(0, delay)/60;
+  var liveEstimateMin;
+  if(state.currentIndex >= 0 && state.currentIndex < total){
+    var restSec = Math.max(0, getRemainingSeconds(state.currentIndex));
+    for(var i = state.currentIndex + 1; i < total; i++){
+      if(state.schedule[i].status !== 'done'){ restSec += state.schedule[i].duration * 60; }
+    }
+    liveEstimateMin = nowSecondsSinceMidnight()/60 + restSec/60;
+  } else {
+    liveEstimateMin = plannedFinishMin;
+  }
   document.getElementById('live-finish-estimate').textContent = minutesToHHMM(liveEstimateMin);
   var endDiff = hhmmToMinutes(state.eventEnd) - liveEstimateMin;
+  if(endDiff < -720){ endDiff += 1440; } else if(endDiff > 720){ endDiff -= 1440; }
   var endDiffEl = document.getElementById('end-diff');
-  if(total === 0){
+  if(total === 0 || state.currentIndex >= total){
     endDiffEl.textContent = '';
   } else if(Math.abs(endDiff) < 1){
     endDiffEl.textContent = 'In linea con l\'orario di fine.';
@@ -866,8 +934,6 @@ function renderDashboard(){
     endDiffEl.textContent = 'Margine di ' + Math.round(endDiff) + ' min prima della fine desiderata.';
     endDiffEl.className = 'text-xs text-emerald-600 font-medium';
   }
-
-  renderScheduleTable();
 }
 
 function renderScheduleTable(){
@@ -938,19 +1004,24 @@ function tickDashboard(){
       effCell.className = 'px-3 py-2.5 text-sm tabular-nums ' + (elapsed > cur.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500');
     }
   }
-  var delay = getTotalDelaySeconds();
+  updateDelayPill(getTotalDelaySeconds());
+  updateFinishEstimate();
+}
+
+function updateDelayPill(delay){
   var delayEl = document.getElementById('delay-pill');
-  if(delayEl){
-    if(Math.abs(delay) < 1){
-      delayEl.textContent = 'In orario';
-      delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-white/10 text-white/70';
-    } else if(delay > 0){
-      delayEl.textContent = 'Ritardo ' + formatSecondsDelay(delay);
-      delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-red-500/15 text-red-300';
-    } else {
-      delayEl.textContent = 'Anticipo ' + formatSecondsDelay(delay);
-      delayEl.className = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium bg-emerald-500/15 text-emerald-300';
-    }
+  if(!delayEl) return;
+  var base = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ';
+  var recovered = state.recoveredSeconds || 0;
+  if(Math.abs(delay) < 1){
+    delayEl.textContent = 'In orario';
+    delayEl.className = base + 'bg-white/10 text-white/70';
+  } else if(delay > 0){
+    delayEl.textContent = 'Ritardo ' + formatSecondsDelay(delay) + (recovered >= 1 ? ' · recuperati ' + formatSecondsSigned(Math.min(recovered, delay)) : '');
+    delayEl.className = base + (recovered >= delay - 1 ? 'bg-amber-500/15 text-amber-300' : 'bg-red-500/15 text-red-300');
+  } else {
+    delayEl.textContent = 'Anticipo ' + formatSecondsDelay(delay);
+    delayEl.className = base + 'bg-emerald-500/15 text-emerald-300';
   }
 }
 
@@ -1021,6 +1092,7 @@ function tickCountdown(){
   var targetSec = hhmmToMinutes(state.eventStart) * 60;
   var nowSec = nowSecondsSinceMidnight();
   var remaining = targetSec - nowSec;
+  if(remaining < -43200){ remaining += 86400; }
 
   var timerEl = document.getElementById('countdown-timer');
   var statusEl = document.getElementById('countdown-status');
@@ -1074,6 +1146,28 @@ function readFileAsDataURL(file){
     reader.readAsDataURL(file);
   });
 }
+// Ridimensiona un'immagine (data URL) entro maxSide px e la ricodifica.
+// Serve a restare nei limiti delle API Vision (foto da smartphone spesso > 5 MB)
+// e a non saturare il localStorage con loghi pesanti.
+function downscaleDataURL(dataUrl, maxSide, mime, quality){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      var w = img.naturalWidth, h = img.naturalHeight;
+      if(!w || !h){ resolve(dataUrl); return; }
+      var scale = Math.min(1, maxSide / Math.max(w, h));
+      var canvas = document.createElement('canvas');
+      canvas.width = Math.max(1, Math.round(w * scale));
+      canvas.height = Math.max(1, Math.round(h * scale));
+      var ctx = canvas.getContext('2d');
+      if(mime === 'image/jpeg'){ ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, canvas.width, canvas.height); }
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      try{ resolve(canvas.toDataURL(mime, quality)); }catch(e){ resolve(dataUrl); }
+    };
+    img.onerror = function(){ resolve(dataUrl); };
+    img.src = dataUrl;
+  });
+}
 function pdfToImages(file){
   if(!window.pdfjsLib){ return Promise.reject(new Error('Libreria di lettura PDF non disponibile (verifica la connessione internet).')); }
   try{
@@ -1095,7 +1189,7 @@ function pdfToImages(file){
             canvas.height = viewport.height;
             var ctx = canvas.getContext('2d');
             return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function(){
-              images.push(canvas.toDataURL('image/png'));
+              images.push(canvas.toDataURL('image/jpeg', 0.9));
             });
           });
         });
@@ -1107,7 +1201,9 @@ function pdfToImages(file){
 function fileToImages(file){
   var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
   if(isPdf){ return pdfToImages(file); }
-  if(file.type.indexOf('image/') === 0){ return readFileAsDataURL(file).then(function(d){ return [d]; }); }
+  if(file.type.indexOf('image/') === 0){
+    return readFileAsDataURL(file).then(function(d){ return downscaleDataURL(d, 2000, 'image/jpeg', 0.9); }).then(function(d){ return [d]; });
+  }
   return Promise.reject(new Error('Formato file non supportato. Usa un\'immagine (JPG, PNG) oppure un PDF.'));
 }
 
@@ -1178,8 +1274,8 @@ function callAnthropicVision(images, instruction){
       'anthropic-dangerous-direct-browser-access': 'true'
     },
     body: JSON.stringify({
-      model: settings.model || 'claude-sonnet-4-5',
-      max_tokens: 4000,
+      model: settings.model || defaultModelFor('anthropic'),
+      max_tokens: 16000,
       messages: [ { role: 'user', content: content } ]
     })
   }).then(function(res){
@@ -1191,7 +1287,10 @@ function callAnthropicVision(images, instruction){
     }
     return res.json();
   }).then(function(data){
-    var text = (data.content && data.content[0] && data.content[0].text) ? data.content[0].text : '';
+    if(data.stop_reason === 'refusal'){ throw new Error('Il modello ha rifiutato la richiesta.'); }
+    // La risposta può contenere blocchi "thinking" prima del testo: prendiamo solo i blocchi di testo.
+    var text = (data.content || []).filter(function(b){ return b.type === 'text'; }).map(function(b){ return b.text; }).join('');
+    if(!text && data.stop_reason === 'max_tokens'){ throw new Error('Risposta AI troncata (limite di token raggiunto).'); }
     return parseAIJson(text);
   });
 }
@@ -1215,11 +1314,16 @@ function applyImportedItems(items){
       state.currentIndex = -1;
       state.running = false;
       state.activeStartEpoch = null;
+      state.recoveredSeconds = 0;
     } else {
       state.schedule = state.schedule.concat(mapped);
     }
   } else {
     state.schedule = mapped;
+    state.currentIndex = -1;
+    state.running = false;
+    state.activeStartEpoch = null;
+    state.recoveredSeconds = 0;
   }
   broadcastState();
   renderDashboard();
@@ -1263,11 +1367,53 @@ function runExtraction(){
 /* ---------------------------------------------------------------- */
 /* Impostazioni (modale)                                             */
 /* ---------------------------------------------------------------- */
+var KEY_HELP = {
+  openai: { url: 'https://platform.openai.com/api-keys', label: 'platform.openai.com/api-keys', placeholder: 'sk-proj-...' },
+  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' }
+};
+function updateSettingsKeyHelp(){
+  var provider = document.getElementById('settings-provider').value;
+  var info = KEY_HELP[provider] || KEY_HELP.openai;
+  document.getElementById('settings-apikey').placeholder = info.placeholder;
+  var help = document.getElementById('settings-key-help');
+  help.innerHTML = '1. Accedi (o registrati) su <a href="' + info.url + '" target="_blank" rel="noopener noreferrer" class="underline text-gray-700 hover:text-accent">' + info.label + '</a>.<br>' +
+    '2. Crea una nuova chiave e copiala.<br>3. Incollala qui sopra, premi "Verifica chiave" e poi "Salva impostazioni".';
+}
+function setVerifyStatus(msg, kind){
+  var el = document.getElementById('settings-verify-status');
+  el.textContent = msg || '';
+  el.className = 'text-xs ' + (kind === 'ok' ? 'text-emerald-600 font-medium' : kind === 'error' ? 'text-red-600 font-medium' : 'text-gray-500');
+}
 function openSettingsModal(){
   document.getElementById('settings-provider').value = settings.provider;
   document.getElementById('settings-apikey').value = settings.apiKey;
+  document.getElementById('settings-apikey').type = 'password';
+  document.getElementById('settings-apikey-toggle').textContent = 'Mostra';
   document.getElementById('settings-model').value = settings.model;
+  updateSettingsKeyHelp();
+  setVerifyStatus('');
   document.getElementById('settings-modal').classList.remove('hidden');
+  if(!settings.apiKey){ setTimeout(function(){ document.getElementById('settings-apikey').focus(); }, 50); }
+}
+// Verifica la chiave con una chiamata gratuita all'elenco modelli del provider.
+function verifyApiKey(provider, key){
+  var req = provider === 'openai'
+    ? fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': 'Bearer ' + key } })
+    : fetch('https://api.anthropic.com/v1/models', { headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      } });
+  return req.then(function(res){
+    if(res.ok) return true;
+    return safeReadJson(res).then(function(body){
+      var msg = body && body.error && body.error.message ? body.error.message : res.statusText;
+      if(res.status === 401 || res.status === 403){ msg = 'chiave non valida o non autorizzata'; }
+      throw new Error(msg + ' (' + res.status + ')');
+    });
+  }, function(){
+    throw new Error('impossibile contattare il provider (verifica la connessione)');
+  });
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').classList.add('hidden');
@@ -1295,23 +1441,59 @@ function wireEvents(){
   document.getElementById('open-countdown-btn-mobile').addEventListener('click', openCountdown);
   document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
   document.getElementById('settings-close-btn').addEventListener('click', closeSettingsModal);
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !document.getElementById('settings-modal').classList.contains('hidden')){ closeSettingsModal(); }
+  });
   document.getElementById('settings-modal').addEventListener('click', function(e){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
   });
+  document.getElementById('settings-apikey-toggle').addEventListener('click', function(){
+    var input = document.getElementById('settings-apikey');
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    this.textContent = show ? 'Nascondi' : 'Mostra';
+  });
+  document.getElementById('settings-apikey').addEventListener('input', function(e){
+    setVerifyStatus('');
+    var guessed = guessProviderFromKey(e.target.value.trim());
+    var providerSel = document.getElementById('settings-provider');
+    if(guessed && guessed !== providerSel.value){
+      providerSel.value = guessed;
+      providerSel.dispatchEvent(new Event('change'));
+      setVerifyStatus('Provider impostato automaticamente su ' + providerName(guessed) + '.', 'info');
+    }
+  });
+  document.getElementById('settings-verify-btn').addEventListener('click', function(){
+    var key = document.getElementById('settings-apikey').value.trim();
+    var provider = document.getElementById('settings-provider').value;
+    if(!key){ setVerifyStatus('Inserisci prima una chiave.', 'error'); return; }
+    var btn = this;
+    var spinner = document.getElementById('settings-verify-spinner');
+    btn.disabled = true; spinner.classList.remove('hidden');
+    setVerifyStatus('Verifica in corso…', 'info');
+    verifyApiKey(provider, key).then(function(){
+      setVerifyStatus('Chiave valida ✓', 'ok');
+    }).catch(function(err){
+      setVerifyStatus('Errore: ' + err.message, 'error');
+    }).finally(function(){
+      btn.disabled = false; spinner.classList.add('hidden');
+    });
+  });
   document.getElementById('settings-provider').addEventListener('change', function(e){
     var provider = e.target.value;
+    updateSettingsKeyHelp();
     var modelInput = document.getElementById('settings-model');
-    if(!modelInput.value || modelInput.value === 'gpt-4o' || modelInput.value === 'claude-sonnet-4-5'){
-      modelInput.value = provider === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-5';
+    if(!modelInput.value || modelInput.value === defaultModelFor('openai') || modelInput.value === defaultModelFor('anthropic') || modelInput.value === 'claude-sonnet-4-5'){
+      modelInput.value = defaultModelFor(provider);
     }
   });
   document.getElementById('settings-save-btn').addEventListener('click', function(){
     settings.provider = document.getElementById('settings-provider').value;
     settings.apiKey = document.getElementById('settings-apikey').value.trim();
-    settings.model = document.getElementById('settings-model').value.trim() || (settings.provider === 'openai' ? 'gpt-4o' : 'claude-sonnet-4-5');
+    settings.model = document.getElementById('settings-model').value.trim() || defaultModelFor(settings.provider);
     saveSettings();
     updateImportProviderLabel();
-    toast('Impostazioni salvate.', 'success');
+    toast(settings.apiKey ? 'Impostazioni salvate: ora puoi importare la scaletta con l\'AI.' : 'Impostazioni salvate.', 'success');
     closeSettingsModal();
   });
   document.getElementById('settings-clear-btn').addEventListener('click', function(){
@@ -1319,6 +1501,10 @@ function wireEvents(){
     settings = defaultSettings();
     saveSettings();
     document.getElementById('settings-apikey').value = '';
+    document.getElementById('settings-provider').value = settings.provider;
+    document.getElementById('settings-model').value = settings.model;
+    updateSettingsKeyHelp();
+    setVerifyStatus('');
     updateImportProviderLabel();
     toast('Chiave API rimossa.', 'success');
   });
@@ -1327,7 +1513,12 @@ function wireEvents(){
     var file = e.target.files && e.target.files[0];
     if(!file) return;
     if(file.type.indexOf('image/') !== 0){ toast('Seleziona un file immagine per il logo (PNG, JPG, SVG...).', 'error'); return; }
+    e.target.value = '';
     readFileAsDataURL(file).then(function(dataUrl){
+      // Gli SVG leggeri restano vettoriali; il resto viene ridotto a 256px PNG.
+      if(file.type === 'image/svg+xml' && dataUrl.length < 100000){ return dataUrl; }
+      return downscaleDataURL(dataUrl, 256, 'image/png');
+    }).then(function(dataUrl){
       state.logo = dataUrl;
       broadcastState();
       renderDashboard();
