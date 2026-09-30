@@ -51,7 +51,37 @@
     .animate-pulse { animation: none; }
     .animate-spin { animation: none; }
   }
-  .stage-timer-size { font-size: clamp(4.5rem, 17vw, 13rem); line-height: 1; }
+  /* Stage Display e Countdown: tre fasce (alto, centro, basso) con angoli.
+     Le dimensioni seguono sia la larghezza sia l'altezza dello schermo; --s è
+     la scala scelta nelle impostazioni, --fit la riduzione automatica. */
+  .disp-root { height: 100vh; height: 100dvh; background: #000; color: #fff; display: flex; flex-direction: column; overflow: hidden; padding: max(12px, 2.5vh) max(12px, 2.5vw); box-sizing: border-box; }
+  .disp-root.hidden { display: none; }
+  .disp-root.disp-hide-cursor, .disp-root.disp-hide-cursor * { cursor: none; }
+  .disp-band { display: flex; align-items: flex-start; gap: 1rem; }
+  .disp-band[data-band="bottom"] { align-items: flex-end; }
+  .disp-band.disp-empty { display: none; }
+  .disp-slot { display: flex; flex-direction: column; gap: 0.35em; min-width: 0; }
+  .disp-slot-l, .disp-slot-r { flex: 1 1 0; }
+  .disp-slot-l { align-items: flex-start; text-align: left; }
+  .disp-slot-r { align-items: flex-end; text-align: right; }
+  .disp-slot-c { flex: 0 1 auto; max-width: 70%; align-items: center; text-align: center; }
+  .disp-mid { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; text-align: center; gap: min(2vh, 1.25rem); }
+  .disp-el { --s: 1; --fit: 1; margin: 0; }
+  .disp-logo { height: calc(var(--s) * clamp(2rem, 8vh, 7rem)); max-width: 30vw; object-fit: contain; opacity: .9; }
+  .disp-clock { font-size: calc(var(--s) * clamp(0.9rem, min(1.8vw, 3vh), 2.5rem)); color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
+  .disp-title { font-size: calc(var(--s) * clamp(0.85rem, min(1.8vw, 3vh), 2rem)); color: rgba(255,255,255,.6); font-weight: 500; letter-spacing: .02em; }
+  .disp-title-lg { font-size: calc(var(--s) * clamp(1.25rem, min(4vw, 6vh), 4.5rem)); color: rgba(255,255,255,.85); font-weight: 600; }
+  .disp-status { font-size: calc(var(--s) * clamp(0.85rem, min(2vw, 3.2vh), 2.25rem)); font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.65); }
+  #countdown-status { color: #E8A33D; }
+  .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
+  .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
+  .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .disp-progress { width: min(80vw, 70rem); height: calc(var(--s) * max(6px, 1.2vh)); border-radius: 9999px; background: rgba(255,255,255,.12); overflow: hidden; }
+  .disp-progress > div { height: 100%; width: 0; border-radius: inherit; background: #34d399; transition: width .25s linear; }
+  .disp-sub { font-size: calc(var(--s) * clamp(0.9rem, min(2.2vw, 3.6vh), 2.5rem)); color: rgba(255,255,255,.7); }
+  .disp-fs-btn { position: fixed; right: 16px; bottom: 16px; z-index: 40; align-items: center; gap: .5rem; padding: .6rem .9rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; font-size: .875rem; font-weight: 600; transition: opacity .3s; }
+  .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
+  .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
   .hidden-important { display: none !important; }
   #import-panel > summary::-webkit-details-marker { display: none; }
 </style>
@@ -289,46 +319,66 @@
 <!-- ============================================================ -->
 <!-- STAGE DISPLAY                                                 -->
 <!-- ============================================================ -->
-<div id="stage-root" class="hidden min-h-screen bg-black text-white relative flex flex-col select-none">
-  <img id="stage-logo" src="" alt="Logo" class="hidden absolute top-5 left-5 sm:top-8 sm:left-8 h-10 sm:h-16 object-contain opacity-90 z-10" />
-  <div class="absolute top-5 right-5 sm:top-8 sm:right-8 text-right z-10">
-    <p id="stage-clock" class="font-mono-time text-base sm:text-xl text-white/50 tabular-nums">--:--:--</p>
+<div id="stage-root" class="hidden disp-root select-none">
+  <div class="disp-band" data-band="top">
+    <div class="disp-slot disp-slot-l" id="stage-slot-tl"></div>
+    <div class="disp-slot disp-slot-c" id="stage-slot-top"></div>
+    <div class="disp-slot disp-slot-r" id="stage-slot-tr"></div>
   </div>
-
-  <div class="flex-1 flex flex-col items-center justify-center text-center px-6 gap-3 sm:gap-4">
-    <p id="stage-event-title" class="text-xs sm:text-sm tracking-wide text-white/35 font-medium"></p>
-    <p id="stage-status" class="text-sm sm:text-base font-semibold text-white/50 tracking-wide"></p>
-    <p id="stage-name" class="font-display text-3xl sm:text-6xl font-semibold px-4 max-w-[90vw] truncate">In attesa di inizio</p>
-    <div id="stage-timer" class="font-mono-time stage-timer-size font-semibold tabular-nums text-white/50">00:00</div>
+  <div class="disp-slot disp-mid" id="stage-slot-center"></div>
+  <div class="disp-band" data-band="bottom">
+    <div class="disp-slot disp-slot-l" id="stage-slot-bl"></div>
+    <div class="disp-slot disp-slot-c" id="stage-slot-bottom"></div>
+    <div class="disp-slot disp-slot-r" id="stage-slot-br"></div>
   </div>
-
-  <div class="pb-6 sm:pb-10 text-center px-6">
-    <p id="stage-next" class="text-sm sm:text-lg text-white/45"></p>
+  <div class="hidden">
+    <img id="stage-logo" src="" alt="Logo" class="disp-el disp-logo" data-el="logo" />
+    <p id="stage-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
+    <p id="stage-event-title" class="disp-el disp-title" data-el="title"></p>
+    <p id="stage-status" class="disp-el disp-status" data-el="status"></p>
+    <p id="stage-name" class="disp-el disp-name font-display" data-el="name">In attesa di inizio</p>
+    <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00</div>
+    <div id="stage-progress" class="disp-el disp-progress" data-el="progress"><div id="stage-progress-bar"></div></div>
+    <p id="stage-next" class="disp-el disp-sub" data-el="next"></p>
   </div>
 </div>
 
 <!-- ============================================================ -->
 <!-- COUNTDOWN PUBBLICO (pre-evento)                               -->
 <!-- ============================================================ -->
-<div id="countdown-root" class="hidden min-h-screen bg-black text-white relative flex flex-col select-none">
-  <img id="countdown-logo" src="" alt="Logo" class="hidden absolute top-5 left-5 sm:top-8 sm:left-8 h-10 sm:h-16 object-contain opacity-90 z-10" />
-  <div class="absolute top-5 right-5 sm:top-8 sm:right-8 text-right z-10">
-    <p id="countdown-clock" class="font-mono-time text-base sm:text-xl text-white/50 tabular-nums">--:--:--</p>
+<div id="countdown-root" class="hidden disp-root select-none">
+  <div class="disp-band" data-band="top">
+    <div class="disp-slot disp-slot-l" id="countdown-slot-tl"></div>
+    <div class="disp-slot disp-slot-c" id="countdown-slot-top"></div>
+    <div class="disp-slot disp-slot-r" id="countdown-slot-tr"></div>
   </div>
-
-  <div class="flex-1 flex flex-col items-center justify-center text-center px-6 gap-3 sm:gap-4">
-    <p id="countdown-event-title" class="font-display text-xl sm:text-3xl font-semibold text-white/80 px-4 max-w-[90vw] truncate"></p>
-    <p id="countdown-status" class="text-sm sm:text-base font-semibold tracking-wide text-accent"></p>
-    <div id="countdown-timer" class="font-mono-time stage-timer-size font-semibold tabular-nums text-accent">00:00:00</div>
-    <p id="countdown-target-label" class="text-sm sm:text-lg text-white/45"></p>
+  <div class="disp-slot disp-mid" id="countdown-slot-center"></div>
+  <div class="disp-band" data-band="bottom">
+    <div class="disp-slot disp-slot-l" id="countdown-slot-bl"></div>
+    <div class="disp-slot disp-slot-c" id="countdown-slot-bottom"></div>
+    <div class="disp-slot disp-slot-r" id="countdown-slot-br"></div>
+  </div>
+  <div class="hidden">
+    <img id="countdown-logo" src="" alt="Logo" class="disp-el disp-logo" data-el="logo" />
+    <p id="countdown-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
+    <p id="countdown-event-title" class="disp-el disp-title disp-title-lg font-display" data-el="title"></p>
+    <p id="countdown-status" class="disp-el disp-status text-accent" data-el="status"></p>
+    <div id="countdown-timer" class="disp-el disp-timer font-mono-time text-accent" data-el="timer">00:00:00</div>
+    <p id="countdown-target-label" class="disp-el disp-sub" data-el="target"></p>
   </div>
 </div>
+
+<!-- Comandi dei display: compaiono muovendo il mouse o toccando lo schermo -->
+<button id="disp-fs-btn" type="button" class="hidden disp-fs-btn" aria-label="Schermo intero">
+  <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
+  <span id="disp-fs-label">Schermo intero</span>
+</button>
 
 <!-- ============================================================ -->
 <!-- MODALE IMPOSTAZIONI                                           -->
 <!-- ============================================================ -->
 <div id="settings-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-  <div class="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+  <div class="bg-white rounded-xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
     <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
       <h2 class="font-display text-base font-semibold text-gray-900">Impostazioni</h2>
       <button id="settings-close-btn" type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" aria-label="Chiudi">
@@ -348,6 +398,19 @@
           <input type="file" id="logo-file-input" accept="image/*" class="hidden" />
           <button id="logo-remove-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Rimuovi</button>
         </div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4">
+        <div class="flex items-center justify-between gap-3 mb-2">
+          <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Display</h3>
+          <div class="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold" role="tablist">
+            <button type="button" class="display-tab px-3 py-1.5 rounded-md" data-screen="stage" role="tab">Stage Display</button>
+            <button type="button" class="display-tab px-3 py-1.5 rounded-md" data-screen="countdown" role="tab">Countdown</button>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500 mb-3">Scegli cosa mostrare, quanto grande e dove. Le modifiche si vedono subito sui display aperti.</p>
+        <div id="display-settings-rows" class="divide-y divide-gray-100 border-y border-gray-100"></div>
+        <button id="display-reset-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 mt-2 transition-colors">Ripristina predefiniti</button>
       </div>
 
       <div class="border-t border-gray-100 pt-4">
@@ -435,8 +498,76 @@ function defaultState(){
     currentIndex: -1,
     running: false,
     activeStartEpoch: null,
-    recoveredSeconds: 0
+    recoveredSeconds: 0,
+    display: defaultDisplay()
   };
+}
+
+/* ---------------------------------------------------------------- */
+/* Layout dei display (Stage e Countdown), modificabile dalle impostazioni */
+/* ---------------------------------------------------------------- */
+// "big" = elementi grandi, che possono stare solo in alto, al centro o in basso.
+var DISPLAY_ELEMENTS = {
+  stage: [
+    { key: 'logo', label: 'Logo', show: true, pos: 'tl' },
+    { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
+    { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
+    { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
+    { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
+    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
+    { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
+    { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
+  ],
+  countdown: [
+    { key: 'logo', label: 'Logo', show: true, pos: 'tl' },
+    { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
+    { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
+    { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
+    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
+    { key: 'target', label: 'Orario di inizio', show: true, pos: 'center' }
+  ]
+};
+var DISPLAY_POSITIONS = [
+  { value: 'tl', label: 'In alto a sinistra' },
+  { value: 'top', label: 'In alto', big: true },
+  { value: 'tr', label: 'In alto a destra' },
+  { value: 'center', label: 'Al centro', big: true },
+  { value: 'bl', label: 'In basso a sinistra' },
+  { value: 'bottom', label: 'In basso', big: true },
+  { value: 'br', label: 'In basso a destra' }
+];
+var DISPLAY_SIZES = [50, 60, 70, 80, 90, 100, 115, 130, 150, 175, 200];
+function defaultDisplay(){
+  var d = {};
+  Object.keys(DISPLAY_ELEMENTS).forEach(function(screen){
+    d[screen] = {};
+    DISPLAY_ELEMENTS[screen].forEach(function(el){
+      d[screen][el.key] = { show: el.show, size: 100, pos: el.pos };
+    });
+  });
+  return d;
+}
+function isValidPosition(el, pos){
+  return DISPLAY_POSITIONS.some(function(p){ return p.value === pos && (p.big || !el.big); });
+}
+// Completa una configurazione salvata (o arrivata da un'altra finestra) con i
+// valori predefiniti, scartando quelli non validi.
+function normalizeDisplay(d){
+  var out = defaultDisplay();
+  if(!d || typeof d !== 'object') return out;
+  Object.keys(DISPLAY_ELEMENTS).forEach(function(screen){
+    var src = d[screen] || {};
+    DISPLAY_ELEMENTS[screen].forEach(function(el){
+      var cfg = src[el.key];
+      if(!cfg) return;
+      var dst = out[screen][el.key];
+      if(typeof cfg.show === 'boolean') dst.show = cfg.show;
+      var size = Number(cfg.size);
+      if(size >= 30 && size <= 300) dst.size = size;
+      if(isValidPosition(el, cfg.pos)) dst.pos = cfg.pos;
+    });
+  });
+  return out;
 }
 function defaultSettings(){
   return { provider: 'openai', apiKey: '', model: 'gpt-4o' };
@@ -458,6 +589,7 @@ function loadState(){
     var raw = localStorage.getItem(LS_STATE_KEY);
     if(raw){
       st = Object.assign(st, JSON.parse(raw));
+      st.display = normalizeDisplay(st.display);
       // Ogni riga ha bisogno di un id stabile per aggiornare la tabella senza ricrearla.
       (st.schedule || []).forEach(function(it){ if(!it.id){ it.id = uid(); } });
     }
@@ -544,11 +676,13 @@ if(bc){
     if(!msg) return;
     if(msg.type === 'state'){
       state = Object.assign(defaultState(), msg.payload);
+      state.display = normalizeDisplay(state.display);
       rememberSynced(state);
       savedLogo = state.logo;
       renderActive();
     } else if(msg.type === 'patch'){
       Object.assign(state, msg.payload);
+      if('display' in msg.payload) state.display = normalizeDisplay(state.display);
       rememberSynced(msg.payload);
       if('logo' in msg.payload) savedLogo = state.logo;
       renderActive();
@@ -1153,18 +1287,74 @@ function updateDelayPill(delay){
 }
 
 /* ---------------------------------------------------------------- */
+/* Render: layout comune dei display                                 */
+/* ---------------------------------------------------------------- */
+var appliedLayoutKey = '';
+// Sposta ogni elemento nella zona scelta e applica visibilità e dimensione.
+// Si ricalcola solo quando cambiano la configurazione o la presenza del logo.
+function applyDisplayLayout(screen){
+  var cfg = state.display[screen];
+  var key = JSON.stringify(cfg) + '|' + (state.logo ? 1 : 0);
+  if(key === appliedLayoutKey) return;
+  appliedLayoutKey = key;
+  var root = document.getElementById(screen + '-root');
+  DISPLAY_ELEMENTS[screen].forEach(function(def){
+    var el = root.querySelector('[data-el="' + def.key + '"]');
+    var c = cfg[def.key];
+    var visible = c.show && (def.key !== 'logo' || !!state.logo);
+    el.style.setProperty('--s', c.size / 100);
+    el.style.display = visible ? '' : 'none';
+    document.getElementById(screen + '-slot-' + c.pos).appendChild(el);
+  });
+  Array.prototype.forEach.call(root.querySelectorAll('.disp-band'), function(band){
+    var used = Array.prototype.some.call(band.querySelectorAll('.disp-el'), function(el){ return el.style.display !== 'none'; });
+    band.classList.toggle('disp-empty', !used);
+  });
+  lastFitText = null;
+}
+// Il timer si allarga fino a riempire lo schermo senza uscire dai bordi:
+// --chw è la larghezza del testo in "em" (circa 0,62 per carattere monospace).
+function setTimerText(el, text){
+  if(el.textContent !== text){
+    el.textContent = text;
+    el.style.setProperty('--chw', (Math.max(text.length, 5) * 0.62).toFixed(2));
+  }
+}
+// Il nome va a capo su due righe e, se non basta, rimpicciolisce.
+var lastFitText = null;
+function fitName(el, text){
+  if(el.textContent !== text){ el.textContent = text; lastFitText = null; }
+  if(lastFitText === text) return;
+  lastFitText = text;
+  var fit = 1;
+  el.style.setProperty('--fit', fit);
+  while(fit > 0.5 && el.scrollHeight > el.clientHeight + 2){
+    fit = Math.round((fit - 0.05) * 100) / 100;
+    el.style.setProperty('--fit', fit);
+  }
+}
+function setClock(id){
+  var clockEl = document.getElementById(id);
+  if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
+}
+function renderDisplayLogo(id){
+  var logoImg = document.getElementById(id);
+  if(state.logo){ if(logoImg.getAttribute('src') !== state.logo) logoImg.src = state.logo; }
+  else { logoImg.removeAttribute('src'); }
+}
+
+/* ---------------------------------------------------------------- */
 /* Render: Stage Display                                             */
 /* ---------------------------------------------------------------- */
 function renderStage(){
-  var logoImg = document.getElementById('stage-logo');
-  if(state.logo){ logoImg.src = state.logo; logoImg.classList.remove('hidden'); }
-  else { logoImg.classList.add('hidden'); }
+  renderDisplayLogo('stage-logo');
   document.getElementById('stage-event-title').textContent = state.eventTitle || '';
+  applyDisplayLayout('stage');
   tickStage();
 }
+var TIMER_BASE_CLASS = 'disp-el disp-timer font-mono-time ';
 function tickStage(){
-  var clockEl = document.getElementById('stage-clock');
-  if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
+  setClock('stage-clock');
   var total = state.schedule.length;
   var finished = state.currentIndex >= total && total > 0;
   var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
@@ -1172,32 +1362,43 @@ function tickStage(){
   var timerEl = document.getElementById('stage-timer');
   var statusEl = document.getElementById('stage-status');
   var nextEl = document.getElementById('stage-next');
+  var barEl = document.getElementById('stage-progress-bar');
+  var statusClass = 'disp-el disp-status';
 
   if(finished){
-    nameEl.textContent = 'Evento terminato';
-    timerEl.textContent = '00:00';
-    timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums text-white/30';
+    fitName(nameEl, 'Evento terminato');
+    setTimerText(timerEl, '00:00');
+    timerEl.className = TIMER_BASE_CLASS + 'text-white/30';
     statusEl.textContent = '';
+    statusEl.className = statusClass;
     nextEl.textContent = '';
+    barEl.style.width = '100%';
+    barEl.style.background = 'rgba(255,255,255,.3)';
     return;
   }
   if(!cur){
-    nameEl.textContent = state.eventTitle || 'In attesa di inizio';
+    fitName(nameEl, state.eventTitle || 'In attesa di inizio');
     statusEl.textContent = 'IN ATTESA';
-    timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
-    timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums text-white/50';
+    statusEl.className = statusClass;
+    setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
+    timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
     nextEl.textContent = total > 0 ? ('Si parte con: ' + state.schedule[0].speaker) : '';
+    barEl.style.width = '0';
     return;
   }
   var rem = getRemainingSeconds(state.currentIndex);
-  nameEl.textContent = cur.speaker;
+  fitName(nameEl, cur.speaker);
   statusEl.textContent = state.running ? (cur.type === 'flex' ? 'IN ONDA' : 'IN CORSO') : 'IN PAUSA';
-  var colorClass = 'text-emerald-400';
+  statusEl.className = statusClass + (state.running ? '' : ' disp-paused');
+  var colorClass = 'text-emerald-400', barColor = '#34d399';
   var blink = '';
-  if(rem < 0){ colorClass = 'text-red-500'; blink = state.running ? ' blink-red' : ''; }
-  else if(rem <= 120){ colorClass = 'text-yellow-300'; }
-  timerEl.textContent = formatSecondsSigned(rem);
-  timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums ' + colorClass + blink;
+  if(rem < 0){ colorClass = 'text-red-500'; barColor = '#ef4444'; blink = state.running ? ' blink-red' : ''; }
+  else if(rem <= 120){ colorClass = 'text-yellow-300'; barColor = '#fde047'; }
+  setTimerText(timerEl, formatSecondsSigned(rem));
+  timerEl.className = TIMER_BASE_CLASS + colorClass + blink;
+  var dur = cur.duration * 60;
+  barEl.style.width = (dur > 0 ? Math.min(100, Math.max(0, (1 - rem / dur) * 100)) : 100) + '%';
+  barEl.style.background = barColor;
   var nextItem = state.schedule[state.currentIndex+1];
   nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ' + Math.round(nextItem.duration) + ' min') : 'Ultimo intervento della scaletta';
 }
@@ -1206,15 +1407,18 @@ function tickStage(){
 /* Render: Countdown pubblico (pre-evento)                           */
 /* ---------------------------------------------------------------- */
 function renderCountdown(){
-  var logoImg = document.getElementById('countdown-logo');
-  if(state.logo){ logoImg.src = state.logo; logoImg.classList.remove('hidden'); }
-  else { logoImg.classList.add('hidden'); }
+  renderDisplayLogo('countdown-logo');
   document.getElementById('countdown-event-title').textContent = state.eventTitle || '';
+  applyDisplayLayout('countdown');
   tickCountdown();
 }
+// Sotto l'ora mostra solo minuti e secondi: il timer diventa più grande.
+function formatCountdown(sec){
+  var t = formatHMS(sec);
+  return sec < 3600 ? t.slice(3) : t;
+}
 function tickCountdown(){
-  var clockEl = document.getElementById('countdown-clock');
-  if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
+  setClock('countdown-clock');
 
   var targetSec = hhmmToMinutes(state.eventStart) * 60;
   var nowSec = nowSecondsSinceMidnight();
@@ -1229,17 +1433,17 @@ function tickCountdown(){
 
   if(remaining <= 0){
     statusEl.textContent = 'L\'EVENTO È INIZIATO';
-    timerEl.textContent = '00:00:00';
-    timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums text-emerald-400 animate-pulse';
+    setTimerText(timerEl, '00:00');
+    timerEl.className = TIMER_BASE_CLASS + 'text-emerald-400 animate-pulse';
     return;
   }
   statusEl.textContent = 'MANCANO';
-  timerEl.textContent = formatHMS(remaining);
+  setTimerText(timerEl, formatCountdown(remaining));
   var colorClass = 'text-accent';
   var blink = '';
   if(remaining <= 10){ colorClass = 'text-red-500'; blink = ' blink-red'; }
   else if(remaining <= 120){ colorClass = 'text-yellow-300'; }
-  timerEl.className = 'font-mono-time stage-timer-size font-semibold tabular-nums ' + colorClass + blink;
+  timerEl.className = TIMER_BASE_CLASS + colorClass + blink;
 }
 
 /* ---------------------------------------------------------------- */
@@ -1893,6 +2097,7 @@ function openSettingsModal(){
   document.getElementById('settings-model').value = settings.model;
   updateSettingsKeyHelp();
   setVerifyStatus('');
+  renderDisplaySettings();
   document.getElementById('settings-modal').classList.remove('hidden');
   if(!settings.apiKey){ setTimeout(function(){ document.getElementById('settings-apikey').focus(); }, 50); }
 }
@@ -1921,6 +2126,45 @@ function verifyApiKey(provider, key){
   }, function(){
     throw new Error('impossibile contattare il provider (verifica la connessione)');
   });
+}
+var displaySettingsScreen = 'stage';
+function renderDisplaySettings(){
+  var screen = displaySettingsScreen;
+  var cfg = state.display[screen];
+  Array.prototype.forEach.call(document.querySelectorAll('.display-tab'), function(tab){
+    var active = tab.dataset.screen === screen;
+    tab.className = 'display-tab px-3 py-1.5 rounded-md ' + (active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800');
+    tab.setAttribute('aria-selected', active ? 'true' : 'false');
+  });
+  document.getElementById('display-settings-rows').innerHTML = DISPLAY_ELEMENTS[screen].map(function(def){
+    var c = cfg[def.key];
+    var sizeOpts = DISPLAY_SIZES.concat(DISPLAY_SIZES.indexOf(c.size) === -1 ? [c.size] : []).sort(function(a, b){ return a - b; }).map(function(v){
+      return '<option value="' + v + '"' + (v === c.size ? ' selected' : '') + '>' + v + '%</option>';
+    }).join('');
+    var posOpts = DISPLAY_POSITIONS.filter(function(p){ return p.big || !def.big; }).map(function(p){
+      return '<option value="' + p.value + '"' + (p.value === c.pos ? ' selected' : '') + '>' + p.label + '</option>';
+    }).join('');
+    var off = c.show ? '' : ' opacity-40';
+    return '<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">' +
+      '<label class="flex items-center gap-2 text-sm text-gray-800 flex-1 min-w-[10rem] cursor-pointer">' +
+        '<input type="checkbox" class="w-4 h-4 accent-[#E8A33D]" data-display-key="' + def.key + '" data-display-field="show"' + (c.show ? ' checked' : '') + ' />' +
+        escapeHtml(def.label) + '</label>' +
+      '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5' + off + '" aria-label="Dimensione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="size">' + sizeOpts + '</select>' +
+      '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40' + off + '" aria-label="Posizione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="pos">' + posOpts + '</select>' +
+      (def.key === 'logo' && !state.logo ? '<p class="w-full text-[11px] text-gray-400">Nessun logo caricato: carica un logo qui sopra per mostrarlo.</p>' : '') +
+    '</div>';
+  }).join('');
+}
+function onDisplaySettingChange(e){
+  var el = e.target.closest('[data-display-key]');
+  if(!el) return;
+  var c = state.display[displaySettingsScreen][el.dataset.displayKey];
+  var field = el.dataset.displayField;
+  if(field === 'show'){ c.show = el.checked; }
+  else if(field === 'size'){ c.size = parseInt(el.value, 10) || 100; }
+  else { c.pos = el.value; }
+  broadcastState();
+  renderDisplaySettings();
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').classList.add('hidden');
@@ -1964,6 +2208,60 @@ function openBoth(){
 }
 
 /* ---------------------------------------------------------------- */
+/* Display: schermo intero, cursore nascosto, schermo sempre acceso   */
+/* ---------------------------------------------------------------- */
+var wakeLock = null;
+function requestWakeLock(){
+  if(!('wakeLock' in navigator) || wakeLock || document.visibilityState !== 'visible') return;
+  navigator.wakeLock.request('screen').then(function(lock){
+    wakeLock = lock;
+    lock.addEventListener('release', function(){ wakeLock = null; });
+  }).catch(function(){});
+}
+function isFullscreen(){ return !!(document.fullscreenElement || document.webkitFullscreenElement); }
+function toggleFullscreen(){
+  var docEl = document.documentElement;
+  if(isFullscreen()){
+    (document.exitFullscreen || document.webkitExitFullscreen).call(document);
+  } else {
+    var req = docEl.requestFullscreen || docEl.webkitRequestFullscreen;
+    if(req){ try{ var p = req.call(docEl); if(p && p.catch) p.catch(function(){}); }catch(e){} }
+  }
+}
+function setupDisplayControls(root){
+  var btn = document.getElementById('disp-fs-btn');
+  var canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
+  if(canFullscreen){
+    btn.classList.remove('hidden');
+    btn.classList.add('inline-flex');
+    btn.addEventListener('click', toggleFullscreen);
+    root.addEventListener('dblclick', toggleFullscreen);
+  }
+  var label = document.getElementById('disp-fs-label');
+  function onFsChange(){ label.textContent = isFullscreen() ? 'Esci da schermo intero' : 'Schermo intero'; }
+  document.addEventListener('fullscreenchange', onFsChange);
+  document.addEventListener('webkitfullscreenchange', onFsChange);
+  // Pulsante e cursore spariscono dopo qualche secondo senza movimenti.
+  var idleTimer = null;
+  function wake(){
+    btn.classList.remove('disp-idle');
+    root.classList.remove('disp-hide-cursor');
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(function(){
+      btn.classList.add('disp-idle');
+      root.classList.add('disp-hide-cursor');
+    }, 2500);
+    requestWakeLock();
+  }
+  ['mousemove', 'pointerdown', 'keydown'].forEach(function(evt){ document.addEventListener(evt, wake); });
+  wake();
+  document.addEventListener('visibilitychange', requestWakeLock);
+  // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
+  window.addEventListener('resize', function(){ lastFitText = null; });
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+}
+
+/* ---------------------------------------------------------------- */
 /* Collegamento eventi                                                */
 /* ---------------------------------------------------------------- */
 function wireEvents(){
@@ -1980,6 +2278,16 @@ function wireEvents(){
   });
   document.getElementById('settings-modal').addEventListener('click', function(e){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
+  });
+  document.getElementById('display-settings-rows').addEventListener('change', onDisplaySettingChange);
+  Array.prototype.forEach.call(document.querySelectorAll('.display-tab'), function(tab){
+    tab.addEventListener('click', function(){ displaySettingsScreen = tab.dataset.screen; renderDisplaySettings(); });
+  });
+  document.getElementById('display-reset-btn').addEventListener('click', function(){
+    state.display[displaySettingsScreen] = defaultDisplay()[displaySettingsScreen];
+    broadcastState();
+    renderDisplaySettings();
+    toast('Display ripristinato.', 'success');
   });
   document.getElementById('settings-apikey-toggle').addEventListener('click', function(){
     var input = document.getElementById('settings-apikey');
@@ -2057,6 +2365,7 @@ function wireEvents(){
       state.logo = dataUrl;
       broadcastState();
       renderDashboard();
+      renderDisplaySettings();
       toast('Logo aggiornato.', 'success');
     }).catch(function(){ toast('Impossibile leggere il file selezionato.', 'error'); });
   });
@@ -2064,6 +2373,7 @@ function wireEvents(){
     state.logo = null;
     broadcastState();
     renderDashboard();
+    renderDisplaySettings();
   });
 
   document.getElementById('event-title-input').addEventListener('change', function(e){
@@ -2146,10 +2456,12 @@ function init(){
   if(isStage){
     document.getElementById('settings-modal').classList.add('hidden');
     document.getElementById('stage-root').classList.remove('hidden');
+    setupDisplayControls(document.getElementById('stage-root'));
     document.title = 'Stage Display — Regia Tempi';
   } else if(isCountdown){
     document.getElementById('settings-modal').classList.add('hidden');
     document.getElementById('countdown-root').classList.remove('hidden');
+    setupDisplayControls(document.getElementById('countdown-root'));
     document.title = 'Countdown — Regia Tempi';
   } else {
     document.getElementById('dashboard-root').classList.remove('hidden');
