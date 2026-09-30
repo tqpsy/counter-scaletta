@@ -1,0 +1,16 @@
+{
+  "rules": {
+    "rooms": {
+      "$room": {
+        ".write": "auth != null && (!data.exists() || data.child('owner').val() === auth.uid)",
+        ".validate": "$room.matches(/^[a-z0-9]{8,32}$/) && newData.child('owner').val() === auth.uid",
+        "owner": { ".validate": "newData.isString()" },
+        "state": {
+          ".read": true,
+          "$field": { ".validate": "newData.isString() && newData.val().length < 1000000" }
+        },
+        "$other": { ".validate": false }
+      }
+    }
+  }
+}
