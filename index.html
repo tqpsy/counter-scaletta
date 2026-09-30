@@ -53,6 +53,7 @@
   }
   .stage-timer-size { font-size: clamp(4.5rem, 17vw, 13rem); line-height: 1; }
   .hidden-important { display: none !important; }
+  #import-panel > summary::-webkit-details-marker { display: none; }
 </style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
@@ -63,7 +64,7 @@
 <div id="dashboard-root">
 
   <header class="sticky top-0 z-30 bg-ink text-white border-b border-white/10">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
       <img id="header-logo" src="" alt="Logo evento" class="h-10 w-10 rounded-lg object-contain bg-white/5 shrink-0 hidden" />
       <div id="header-logo-placeholder" class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center text-accent shrink-0">
         <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></svg>
@@ -97,9 +98,8 @@
     </div>
   </header>
 
-  <main class="max-w-7xl mx-auto px-4 sm:px-6 py-6 grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6 items-start">
+  <main class="max-w-5xl mx-auto px-4 sm:px-6 py-6">
 
-    <!-- Colonna principale -->
     <div class="min-w-0 flex flex-col gap-6">
 
       <!-- Pannello ON AIR -->
@@ -184,52 +184,6 @@
         </div>
       </section>
 
-    </div>
-
-    <!-- Colonna laterale -->
-    <div class="flex flex-col gap-6 min-w-0">
-
-      <!-- Import PDF (lettura interna) -->
-      <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-        <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa PDF</h2>
-        <p class="text-xs text-gray-500 mb-3 leading-relaxed">Lettura interna, senza AI e senza chiave: il file non esce dal dispositivo. Per copioni PDF con testo selezionabile e orari nella colonna di sinistra (es. "21.14’ (3’)"). Le righe restano modificabili.</p>
-        <label for="import-pdf-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-5 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
-          <span id="import-pdf-label" class="text-sm font-medium text-gray-700">Carica PDF</span>
-          <span class="text-xs text-gray-400">Solo PDF</span>
-        </label>
-        <input type="file" id="import-pdf-input" accept="application/pdf,.pdf" class="hidden" />
-        <p id="import-pdf-status" class="text-xs mt-2 hidden"></p>
-      </section>
-
-      <!-- Import AI (foto) -->
-      <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
-        <h2 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa foto con AI</h2>
-        <p class="text-xs text-gray-500 mb-3 leading-relaxed">La foto viene inviata all'AI esterna scelta nelle impostazioni (OpenAI, Claude o Gemini) con la tua chiave API. Va bene anche per un PDF scansionato. Le righe restano modificabili.</p>
-
-        <label for="import-file-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-6 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
-          <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L21 15M4 8h.01M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
-          <span class="text-sm font-medium text-gray-700">Carica foto</span>
-          <span class="text-xs text-gray-400">JPG, PNG (o PDF scansionato)</span>
-        </label>
-        <input type="file" id="import-file-input" accept="image/*,application/pdf" class="hidden" />
-        <div id="import-file-name" class="text-xs text-gray-500 mt-2 hidden"></div>
-
-        <button id="import-extract-btn" type="button" disabled class="mt-3 w-full inline-flex items-center justify-center gap-2 bg-ink text-white text-sm font-medium py-2.5 rounded-lg hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
-          <span id="import-extract-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
-          <span id="import-extract-label">Estrai con AI</span>
-        </button>
-        <p id="import-status" class="text-xs mt-2 hidden"></p>
-        <div id="import-key-box" class="mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
-          <p id="import-provider-label" class="font-medium">—</p>
-          <p id="import-key-hint" class="mt-0.5"></p>
-          <button type="button" id="import-open-settings" class="mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors">
-            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M19 4l2 2"/></svg>
-            <span id="import-open-settings-label">Inserisci la tua chiave API</span>
-          </button>
-        </div>
-      </section>
-
       <!-- Orario evento -->
       <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
         <h2 class="font-display text-sm font-semibold text-gray-900 mb-3">Orario evento</h2>
@@ -263,10 +217,63 @@
         </ul>
       </section>
 
+      <!-- Importazione scaletta (menù a tendina, chiuso quando la scaletta è già caricata) -->
+      <details id="import-panel" class="group bg-white rounded-xl border border-gray-200 overflow-hidden">
+        <summary class="flex items-center justify-between gap-3 px-4 sm:px-5 py-4 cursor-pointer select-none list-none [&::-webkit-details-marker]:hidden">
+          <span>
+            <span class="block font-display text-base font-semibold text-gray-900">Importa scaletta</span>
+            <span class="block text-xs text-gray-500 mt-0.5">Da PDF (lettura interna) o da foto (AI)</span>
+          </span>
+          <svg viewBox="0 0 24 24" class="w-5 h-5 text-gray-400 shrink-0 transition-transform group-open:rotate-180" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
+        </summary>
+
+        <!-- Import PDF (lettura interna) -->
+        <div class="p-4 sm:p-5 border-t border-gray-100">
+          <h3 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa PDF</h3>
+          <p class="text-xs text-gray-500 mb-3 leading-relaxed">Lettura interna, senza AI e senza chiave: il file non esce dal dispositivo. Per copioni PDF con testo selezionabile e orari nella colonna di sinistra (es. "21.14’ (3’)"). Le righe restano modificabili.</p>
+          <label for="import-pdf-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-5 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
+            <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M8 13h8M8 17h5"/></svg>
+            <span id="import-pdf-label" class="text-sm font-medium text-gray-700">Carica PDF</span>
+            <span class="text-xs text-gray-400">Solo PDF</span>
+          </label>
+          <input type="file" id="import-pdf-input" accept="application/pdf,.pdf" class="hidden" />
+          <p id="import-pdf-status" class="text-xs mt-2 hidden"></p>
+        </div>
+
+        <!-- Import AI (foto) -->
+        <div class="p-4 sm:p-5 border-t border-gray-100">
+          <h3 class="font-display text-sm font-semibold text-gray-900 mb-1">Importa foto con AI</h3>
+          <p class="text-xs text-gray-500 mb-3 leading-relaxed">La foto viene inviata all'AI esterna scelta nelle impostazioni (OpenAI, Claude o Gemini) con la tua chiave API. Va bene anche per un PDF scansionato. Le righe restano modificabili.</p>
+
+          <label for="import-file-input" class="flex flex-col items-center justify-center gap-2 border-2 border-dashed border-gray-200 rounded-lg py-6 px-3 text-center cursor-pointer hover:border-accent hover:bg-accent/5 transition-colors">
+            <svg viewBox="0 0 24 24" class="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16l4.5-4.5a2 2 0 0 1 2.8 0L16 16M14 14l1.5-1.5a2 2 0 0 1 2.8 0L21 15M4 8h.01M3 5h18a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1z"/></svg>
+            <span class="text-sm font-medium text-gray-700">Carica foto</span>
+            <span class="text-xs text-gray-400">JPG, PNG (o PDF scansionato)</span>
+          </label>
+          <input type="file" id="import-file-input" accept="image/*,application/pdf" class="hidden" />
+          <div id="import-file-name" class="text-xs text-gray-500 mt-2 hidden"></div>
+
+          <button id="import-extract-btn" type="button" disabled class="mt-3 w-full inline-flex items-center justify-center gap-2 bg-ink text-white text-sm font-medium py-2.5 rounded-lg hover:bg-ink/90 disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            <span id="import-extract-spinner" class="hidden w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></span>
+            <span id="import-extract-label">Estrai con AI</span>
+          </button>
+          <p id="import-status" class="text-xs mt-2 hidden"></p>
+          <div id="import-key-box" class="mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+            <p id="import-provider-label" class="font-medium">—</p>
+            <p id="import-key-hint" class="mt-0.5"></p>
+            <button type="button" id="import-open-settings" class="mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors">
+              <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M19 4l2 2"/></svg>
+              <span id="import-open-settings-label">Inserisci la tua chiave API</span>
+            </button>
+          </div>
+        </div>
+      </details>
+
     </div>
+
   </main>
 
-  <footer class="max-w-7xl mx-auto px-4 sm:px-6 pb-8 pt-2">
+  <footer class="max-w-5xl mx-auto px-4 sm:px-6 pb-8 pt-2">
     <p class="text-[11px] text-gray-400">Regia Tempi — applicazione client-side, nessun dato lascia questo browser eccetto le chiamate dirette alle API AI selezionate per l'importazione della scaletta.</p>
   </footer>
 </div>
@@ -820,6 +827,7 @@ function clearSchedule(){
   state.recoveredSeconds = 0;
   broadcastState();
   renderDashboard();
+  setImportPanelOpen(true);
 }
 
 /* ---------------------------------------------------------------- */
@@ -1599,6 +1607,13 @@ function applyImportedItems(items){
   }
   broadcastState();
   renderDashboard();
+  setImportPanelOpen(false);
+}
+
+// Il menù di importazione resta aperto solo finché la scaletta è vuota.
+function setImportPanelOpen(open){
+  var panel = document.getElementById('import-panel');
+  if(panel){ panel.open = open; }
 }
 
 function setImportLoading(loading){
@@ -2103,6 +2118,7 @@ function init(){
     document.title = 'Countdown — Regia Tempi';
   } else {
     document.getElementById('dashboard-root').classList.remove('hidden');
+    setImportPanelOpen(state.schedule.length === 0);
   }
 
   wireEvents();
