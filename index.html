@@ -1193,6 +1193,10 @@ function computeLiveFinishMin(){
   var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
   var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
   var nowMin = nowSecondsSinceMidnight()/60;
+  if(total > 0 && !hasEventStarted()){
+    // Non ancora partita: fine da scaletta, spostata in avanti dal ritardo sull'inizio.
+    return plannedFinishMin + getStartDelaySeconds()/60;
+  }
   if(state.currentIndex >= 0 && state.currentIndex < total){
     var restSec = Math.max(0, getRemainingSeconds(state.currentIndex));
     for(var i = state.currentIndex + 1; i < total; i++){
@@ -1200,14 +1204,16 @@ function computeLiveFinishMin(){
     }
     return nowMin + restSec/60;
   }
-  if(state.currentIndex === -1 && getStartDelaySeconds() > 0){
-    return nowMin + totalPlannedMin;
-  }
   return plannedFinishMin;
+}
+// La scaletta è partita quando un intervento ha davvero consumato tempo: selezionare
+// il primo intervento (o importare la scaletta) senza premere Play non conta.
+function hasEventStarted(){
+  return state.running || state.schedule.some(function(it){ return it.status === 'done' || it.accumulatedSeconds > 0; });
 }
 // Secondi di ritardo sull'orario di inizio, finché la scaletta non è partita (0 se non in ritardo).
 function getStartDelaySeconds(){
-  if(state.currentIndex !== -1 || state.schedule.some(function(it){ return it.status === 'done'; })) return 0;
+  if(hasEventStarted()) return 0;
   var late = nowSecondsSinceMidnight() - hhmmToMinutes(state.eventStart) * 60;
   if(late < -43200){ late += 86400; } else if(late > 43200){ late -= 86400; }
   return Math.max(0, late);
