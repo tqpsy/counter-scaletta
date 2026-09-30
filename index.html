@@ -84,6 +84,8 @@
   .disp-fs-btn { position: fixed; right: 16px; bottom: 16px; z-index: 40; align-items: center; gap: .5rem; padding: .6rem .9rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; font-size: .875rem; font-weight: 600; transition: opacity .3s; }
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
   .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
+  /* Sul telefono in basso c'è "Prossimo": il pulsante va in alto al centro. */
+  @media (max-width: 767px) { .disp-fs-btn { bottom: auto; right: auto; top: 12px; left: 50%; transform: translateX(-50%); } }
   .disp-fs-hint { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; font-size: clamp(1.25rem, 3vw, 2.5rem); font-weight: 600; cursor: pointer; }
   .disp-fs-hint.hidden { display: none; }
   .hidden-important { display: none !important; }
@@ -122,7 +124,7 @@
 <!-- ============================================================ -->
 <div id="dashboard-root">
 
-  <header class="sticky top-0 z-30 bg-ink text-white border-b border-white/10">
+  <header class="sm:sticky sm:top-0 z-30 bg-ink text-white border-b border-white/10">
     <div class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
       <img id="header-logo" src="" alt="Logo evento" class="h-10 w-10 rounded-lg object-contain bg-white/5 shrink-0 hidden" />
       <div id="header-logo-placeholder" class="h-10 w-10 rounded-lg bg-white/10 flex items-center justify-center text-accent shrink-0">
@@ -153,16 +155,16 @@
         <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h13M21 18h0"/><circle cx="16" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="17" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
       </button>
     </div>
-    <div class="sm:hidden px-4 pb-3 flex flex-col gap-2">
+    <div class="sm:hidden px-4 pb-3 grid grid-cols-2 gap-2">
       <button id="open-stage-btn-mobile" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-accent text-ink text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-accent-soft transition-colors">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
-        Apri Stage Display
+        Stage
       </button>
       <button id="open-countdown-btn-mobile" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
-        Apri Countdown
+        Countdown
       </button>
-      <button id="open-both-btn-mobile" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors">
+      <button id="open-both-btn-mobile" type="button" class="hidden w-full items-center justify-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
         Apri entrambi
       </button>
