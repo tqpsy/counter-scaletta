@@ -84,6 +84,8 @@
   .disp-fs-btn { position: fixed; right: 16px; bottom: 16px; z-index: 40; align-items: center; gap: .5rem; padding: .6rem .9rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; font-size: .875rem; font-weight: 600; transition: opacity .3s; }
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
   .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
+  .disp-fs-hint { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.6); color: #fff; font-size: clamp(1.25rem, 3vw, 2.5rem); font-weight: 600; cursor: pointer; }
+  .disp-fs-hint.hidden { display: none; }
   .hidden-important { display: none !important; }
   /* Anteprime nella dashboard: il display gira a 1920x1080 e viene rimpicciolito. */
   .preview-frame { position: absolute; top: 0; left: 0; width: 1920px; height: 1080px; border: 0; transform-origin: 0 0; pointer-events: none; }
@@ -437,6 +439,7 @@
 </div>
 
 <!-- Comandi dei display: compaiono muovendo il mouse o toccando lo schermo -->
+<div id="disp-fs-hint" class="hidden disp-fs-hint">Clicca per lo schermo intero</div>
 <button id="disp-fs-btn" type="button" class="hidden disp-fs-btn" aria-label="Schermo intero">
   <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg>
   <span id="disp-fs-label">Schermo intero</span>
@@ -2381,17 +2384,62 @@ function closeSettingsModal(){
 // in primo piano quella già aperta invece di aprirne un doppione (con
 // "noopener" il browser ignorava il nome e apriva sempre una finestra nuova).
 var displayWindows = {};
-function openDisplayWindow(name, query){
+
+// Schermi esterni (Chrome/Edge, API Window Management). Con il permesso già
+// concesso l'elenco si legge all'avvio, così al clic la finestra si apre subito
+// sullo schermo giusto senza perdere il gesto dell'utente (niente blocco popup).
+var screenDetails = null;
+var screenPermission = 'unsupported';
+var screenPromptShown = false;
+function loadScreenDetails(){
+  return window.getScreenDetails().then(function(d){ screenDetails = d; return d; }).catch(function(){ return null; });
+}
+function initScreens(){
+  if(!('getScreenDetails' in window) || !navigator.permissions) return;
+  navigator.permissions.query({ name: 'window-management' }).then(function(st){
+    screenPermission = st.state;
+    if(st.state === 'granted') loadScreenDetails();
+    st.onchange = function(){
+      screenPermission = st.state;
+      if(st.state === 'granted') loadScreenDetails();
+    };
+  }).catch(function(){});
+}
+// Gli schermi diversi da quello della dashboard: il primo è per lo Stage.
+function externalScreens(){
+  if(!screenDetails) return [];
+  return screenDetails.screens.filter(function(sc){ return sc !== screenDetails.currentScreen; });
+}
+// La prima volta con due schermi il browser deve chiedere il permesso: la
+// finestra si apre normale e dalla volta dopo va da sola sul secondo schermo.
+function askScreenPermissionOnce(){
+  if(screenPromptShown || screenPermission !== 'prompt' || !window.screen.isExtended) return;
+  screenPromptShown = true;
+  toast('Consenti la gestione delle finestre: dalla prossima volta lo Stage si apre da solo sul secondo schermo, a schermo intero.', 'info');
+  loadScreenDetails();
+}
+
+function openDisplayWindow(name, query, screenIndex){
+  var target = externalScreens()[screenIndex] || null;
   var w = displayWindows[name];
   if(!w || w.closed){
+    var features = 'width=1366,height=768';
+    if(target){
+      features = 'popup,left=' + target.availLeft + ',top=' + target.availTop +
+        ',width=' + target.availWidth + ',height=' + target.availHeight;
+      query += '&fs=1';
+    }
     // Con l'URL vuoto il browser restituisce la finestra con quel nome se
     // esiste già (anche dopo aver ricaricato la dashboard), senza ricaricarla.
-    w = window.open('', name, 'width=1366,height=768');
+    w = window.open('', name, features);
     if(!w) return false;
     var blank = false;
     try{ blank = w.location.href === 'about:blank'; }catch(e){ blank = false; }
     if(blank){ w.location.href = window.location.href.split('#')[0].split('?')[0] + query; }
     displayWindows[name] = w;
+  } else if(target){
+    // Finestra già aperta: la si riporta sul suo schermo.
+    try{ w.moveTo(target.availLeft, target.availTop); w.resizeTo(target.availWidth, target.availHeight); }catch(e){}
   }
   try{ w.focus(); }catch(e){}
   return true;
@@ -2399,16 +2447,19 @@ function openDisplayWindow(name, query){
 function warnPopupBlocked(){
   toast('Il browser ha bloccato una finestra: consenti i popup per questo sito e riprova.', 'warn');
 }
+// Stage sul primo schermo esterno, Countdown sul secondo (se c'è un terzo schermo).
 function openStage(){
-  if(!openDisplayWindow('regiaTempiStage', '?stage=1')) warnPopupBlocked();
+  if(!openDisplayWindow('regiaTempiStage', '?stage=1', 0)) warnPopupBlocked();
+  askScreenPermissionOnce();
 }
 function openCountdown(){
-  if(!openDisplayWindow('regiaTempiCountdown', '?countdown=1')) warnPopupBlocked();
+  if(!openDisplayWindow('regiaTempiCountdown', '?countdown=1', 1)) warnPopupBlocked();
 }
 function openBoth(){
-  var okCountdown = openDisplayWindow('regiaTempiCountdown', '?countdown=1');
-  var okStage = openDisplayWindow('regiaTempiStage', '?stage=1');
+  var okCountdown = openDisplayWindow('regiaTempiCountdown', '?countdown=1', 1);
+  var okStage = openDisplayWindow('regiaTempiStage', '?stage=1', 0);
   if(!okCountdown || !okStage) warnPopupBlocked();
+  askScreenPermissionOnce();
 }
 
 /* ---------------------------------------------------------------- */
@@ -2464,6 +2515,25 @@ function setupDisplayControls(root){
   ['mousemove', 'pointerdown', 'keydown'].forEach(function(evt){ document.addEventListener(evt, wake); });
   wake();
   document.addEventListener('visibilitychange', requestWakeLock);
+  // Aperta dalla dashboard su un secondo schermo: si va a schermo intero da
+  // soli se il browser lo consente, altrimenti basta un clic ovunque.
+  if(canFullscreen && params.get('fs') === '1' && !isFullscreen()){
+    var hint = document.getElementById('disp-fs-hint');
+    var goFull = function(){
+      hint.classList.add('hidden');
+      document.removeEventListener('pointerdown', goFull, true);
+      if(!isFullscreen()) toggleFullscreen();
+    };
+    var req = document.documentElement.requestFullscreen;
+    var p = null;
+    try{ p = req ? req.call(document.documentElement) : null; }catch(e){ p = null; }
+    var showHint = function(){
+      if(isFullscreen()) return;
+      hint.classList.remove('hidden');
+      document.addEventListener('pointerdown', goFull, true);
+    };
+    if(p && p.then){ p.catch(showHint); } else { showHint(); }
+  }
 }
 
 // Le anteprime si caricano solo quando la colonna è visibile (da 1280 px),
@@ -2757,6 +2827,7 @@ function init(){
     document.getElementById('dashboard-root').classList.remove('hidden');
     setImportPanelOpen(state.schedule.length === 0);
     setupPreviews();
+    initScreens();
   }
 
   wireEvents();
