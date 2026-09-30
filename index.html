@@ -143,6 +143,10 @@
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3h7v7"/><path d="M21 3l-9 9"/><path d="M21 14v5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2h5"/></svg>
         Apri Stage Display
       </button>
+      <button id="share-btn" type="button" class="relative p-2.5 rounded-lg hover:bg-white/10 transition-colors shrink-0" aria-label="Schermi in rete" title="Schermi in rete">
+        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5a10 10 0 0 1 14 0M8.5 16a5 5 0 0 1 7 0M2 9a15 15 0 0 1 20 0"/><circle cx="12" cy="19.5" r="1" fill="currentColor" stroke="none"/></svg>
+        <span id="share-dot" class="hidden absolute top-1.5 right-1.5 w-2 h-2 rounded-full"></span>
+      </button>
       <button id="settings-btn" type="button" class="p-2.5 rounded-lg hover:bg-white/10 transition-colors shrink-0" aria-label="Impostazioni">
         <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h13M21 18h0"/><circle cx="16" cy="6" r="2" fill="currentColor" stroke="none"/><circle cx="9" cy="12" r="2" fill="currentColor" stroke="none"/><circle cx="17" cy="18" r="2" fill="currentColor" stroke="none"/></svg>
       </button>
@@ -290,6 +294,7 @@
         <ul class="list-disc pl-4 space-y-1">
           <li>Tutti i dati (scaletta, chiave API, logo) restano salvati solo su questo dispositivo/browser, in locale.</li>
           <li>Apri lo Stage Display: si sincronizza in tempo reale con questa dashboard tramite BroadcastChannel, anche offline.</li>
+          <li>Per vedere counter e scaletta da altri PC, telefoni o proiettori usa "Schermi in rete" (icona Wi-Fi in alto): serve internet su tutti i dispositivi.</li>
           <li>"Auto-Balance" riduce solo i blocchi "Relatore" successivi per recuperare lo sforamento; i blocchi "fisso" restano invariati.</li>
         </ul>
       </section>
@@ -525,6 +530,43 @@
   </div>
 </div>
 
+<!-- ============================================================ -->
+<!-- MODALE SCHERMI IN RETE                                        -->
+<!-- ============================================================ -->
+<div id="share-modal" class="hidden fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-xl max-w-md w-full max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+      <h2 class="font-display text-base font-semibold text-gray-900">Schermi in rete</h2>
+      <button id="share-close-btn" type="button" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400" aria-label="Chiudi">
+        <svg viewBox="0 0 24 24" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="px-5 py-4 space-y-4">
+      <p class="text-sm text-gray-600">Mostra Stage Display e Countdown su altri PC, telefoni o proiettori, anche collegati a reti diverse. Comanda solo questo PC; gli altri schermi guardano. Serve internet su tutti i dispositivi (va bene anche l'hotspot di un telefono).</p>
+      <p id="share-unconfigured" class="hidden text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2.5">La condivisione in rete non è ancora configurata: manca il collegamento a Firebase (vedi il README del progetto).</p>
+      <div id="share-off">
+        <button id="share-start-btn" type="button" class="inline-flex items-center gap-2 bg-ink hover:bg-ink/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Attiva condivisione</button>
+      </div>
+      <div id="share-on" class="hidden space-y-3">
+        <p class="text-xs flex items-center gap-2"><span id="share-status-dot" class="w-2 h-2 rounded-full shrink-0"></span><span id="share-status-text" class="text-gray-600"></span></p>
+        <div class="inline-flex rounded-lg bg-gray-100 p-0.5 text-xs font-semibold" role="tablist">
+          <button type="button" class="share-tab px-3 py-1.5 rounded-md" data-screen="stage" role="tab">Stage Display</button>
+          <button type="button" class="share-tab px-3 py-1.5 rounded-md" data-screen="countdown" role="tab">Countdown</button>
+        </div>
+        <div id="share-qr" class="flex items-center justify-center mx-auto w-56 h-56 rounded-lg border border-gray-100 bg-white text-xs text-gray-400 text-center p-2"></div>
+        <p class="text-xs text-gray-500 text-center">Inquadra il QR con il telefono, oppure apri il link sull'altro schermo.</p>
+        <div class="flex gap-2">
+          <input id="share-link" type="text" readonly class="flex-1 min-w-0 text-xs font-mono border border-gray-200 rounded-lg px-2.5 py-2 text-gray-700 bg-gray-50" />
+          <button id="share-copy-btn" type="button" class="text-xs font-semibold border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors shrink-0">Copia</button>
+        </div>
+        <button id="share-stop-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Interrompi condivisione</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="remote-status" class="hidden fixed bottom-3 left-3 z-[60] px-3 py-1.5 rounded-full text-xs font-semibold bg-black/70 text-white/80"></div>
+
 <div id="toast-container" class="fixed bottom-4 right-4 z-[60] flex flex-col gap-2 items-end max-w-[90vw]"></div>
 
 <script>
@@ -539,6 +581,15 @@ var LS_STATE_KEY = 'rtl_state_v1';
 var LS_LOGO_KEY = 'rtl_logo_v1';
 var BC_NAME = 'regia_tempi_relatori_v1';
 var MIN_ITEM_SECONDS = 60;
+// Schermi in rete: progetto Firebase (Realtime Database + accesso anonimo).
+// Sono dati pubblici per natura: la protezione la fanno le regole del
+// database (firebase-rules.json). Con i campi vuoti la funzione è disattivata.
+var FIREBASE_CONFIG = {
+  apiKey: '',
+  databaseURL: ''
+};
+var LS_SHARE_KEY = 'rtl_share_v1';
+var QR_LIB_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
 
 var DEFAULT_FAVICON_URI = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#10131A"/><g fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></g></svg>');
 
@@ -552,6 +603,10 @@ var targetIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke
 var params = new URLSearchParams(window.location.search);
 var isStage = params.get('stage') === '1';
 var isCountdown = params.get('countdown') === '1';
+// Stage o Countdown aperto su un altro dispositivo: riceve lo stato da Firebase
+// invece che dalle finestre dello stesso browser.
+var remoteRoom = /^[a-z0-9]{8,32}$/.test(params.get('room') || '') ? params.get('room') : null;
+var isRemoteDisplay = !!remoteRoom && (isStage || isCountdown);
 // Display dentro l'anteprima della dashboard: niente schermo intero né schermo sempre acceso.
 var isEmbed = params.get('embed') === '1';
 
@@ -710,7 +765,7 @@ function saveSettings(){
   try{ localStorage.setItem(LS_SETTINGS_KEY, JSON.stringify(settings)); }catch(e){}
 }
 
-var state = loadState();
+var state = isRemoteDisplay ? defaultState() : loadState();
 var settings = loadSettings();
 var pendingFile = null;
 
@@ -718,7 +773,7 @@ var pendingFile = null;
 /* BroadcastChannel                                                   */
 /* ---------------------------------------------------------------- */
 var bc = null;
-try{ bc = new BroadcastChannel(BC_NAME); }catch(e){ bc = null; }
+if(!isRemoteDisplay){ try{ bc = new BroadcastChannel(BC_NAME); }catch(e){ bc = null; } }
 
 // Ultimo valore sincronizzato di ogni campo (serializzato; il logo è già una
 // stringa). Serve a inviare solo i campi cambiati dall'ultimo messaggio.
@@ -742,6 +797,7 @@ function broadcastState(){
   if(!changed) return;
   saveState();
   if(bc){ try{ bc.postMessage({ type: 'patch', payload: patch }); }catch(e){} }
+  if(share.room){ queueRemote(patch); }
 }
 function sendFullState(){
   if(bc){ try{ bc.postMessage({ type: 'state', payload: state }); }catch(e){} }
@@ -767,7 +823,7 @@ if(bc){
       sendFullState();
     }
   };
-} else {
+} else if(!isRemoteDisplay){
   // Ripiego per browser senza BroadcastChannel: con il canale attivo l'evento
   // storage duplicherebbe ogni aggiornamento, quindi lo si ascolta solo qui.
   window.addEventListener('storage', function(e){
@@ -777,6 +833,321 @@ if(bc){
     savedLogo = state.logo;
     renderActive();
   });
+}
+
+/* ---------------------------------------------------------------- */
+/* Schermi in rete (Firebase Realtime Database)                       */
+/* ---------------------------------------------------------------- */
+// La regia scrive lo stato in rooms/<codice>/state, un campo per chiave
+// (serializzato in JSON, così array vuoti e null restano com'erano); gli schermi
+// remoti lo ascoltano con l'API REST in streaming (EventSource), senza SDK.
+// Ogni scrittura porta anche _clock, l'ora della regia, per allineare i timer.
+var ROOM_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
+var SHARE_HEARTBEAT_MS = 15000;
+var share = {
+  room: null, uid: null, refreshToken: null, token: null, tokenExp: 0,
+  pending: null, inFlight: false, retryTimer: null, status: 'off', tab: 'stage'
+};
+
+function shareConfigured(){ return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL); }
+function dbUrl(path){ return FIREBASE_CONFIG.databaseURL.replace(/\/+$/, '') + '/' + path + '.json'; }
+function newRoomId(){
+  var bytes = new Uint8Array(10), out = '';
+  window.crypto.getRandomValues(bytes);
+  for(var i=0;i<bytes.length;i++){ out += ROOM_ALPHABET.charAt(bytes[i] % ROOM_ALPHABET.length); }
+  return out;
+}
+function loadShare(){
+  try{
+    var saved = JSON.parse(localStorage.getItem(LS_SHARE_KEY) || 'null');
+    if(saved){ share.room = saved.room || null; share.uid = saved.uid || null; share.refreshToken = saved.refreshToken || null; }
+  }catch(e){}
+}
+function saveShare(){
+  try{ localStorage.setItem(LS_SHARE_KEY, JSON.stringify({ room: share.room, uid: share.uid, refreshToken: share.refreshToken })); }catch(e){}
+}
+
+function postJson(url, body, form){
+  return fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': form ? 'application/x-www-form-urlencoded' : 'application/json' },
+    body: form ? body : JSON.stringify(body)
+  }).then(function(res){
+    return res.json().then(function(data){
+      if(!res.ok) throw new Error((data && data.error && data.error.message) || ('HTTP ' + res.status));
+      return data;
+    });
+  });
+}
+// Accesso anonimo: dà alla regia un'identità stabile (salvata qui), così solo
+// questo browser può scrivere nella propria stanza.
+function getShareToken(){
+  if(share.token && Date.now() < share.tokenExp - 60000) return Promise.resolve(share.token);
+  var key = encodeURIComponent(FIREBASE_CONFIG.apiKey);
+  var req = share.refreshToken
+    ? postJson('https://securetoken.googleapis.com/v1/token?key=' + key,
+        'grant_type=refresh_token&refresh_token=' + encodeURIComponent(share.refreshToken), true)
+      .then(function(d){ return { token: d.id_token, refresh: d.refresh_token, uid: d.user_id, expires: d.expires_in }; })
+    : postJson('https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=' + key, { returnSecureToken: true })
+      .then(function(d){ return { token: d.idToken, refresh: d.refreshToken, uid: d.localId, expires: d.expiresIn }; });
+  return req.then(function(r){
+    share.token = r.token;
+    share.tokenExp = Date.now() + (Number(r.expires) || 3600) * 1000;
+    share.refreshToken = r.refresh;
+    share.uid = r.uid;
+    saveShare();
+    return r.token;
+  });
+}
+
+function queueRemote(patch){
+  share.pending = share.pending || {};
+  for(var k in patch){
+    if(!Object.prototype.hasOwnProperty.call(patch, k)) continue;
+    var v = JSON.stringify(patch[k]);
+    if(v !== undefined) share.pending['state/' + k] = v;
+  }
+  flushRemote();
+}
+// Una scrittura alla volta: le richieste in parallelo potrebbero arrivare in
+// ordine diverso e lasciare sugli schermi un valore vecchio.
+function flushRemote(){
+  if(share.inFlight || !share.pending || !share.room || share.retryTimer) return;
+  var body = share.pending;
+  var room = share.room;
+  share.pending = null;
+  share.inFlight = true;
+  getShareToken().then(function(token){
+    body.owner = share.uid;
+    body['state/_clock'] = JSON.stringify(Date.now());
+    return fetch(dbUrl('rooms/' + room) + '?auth=' + encodeURIComponent(token), { method: 'PATCH', body: JSON.stringify(body) });
+  }).then(function(res){
+    if(res.status === 401){ share.token = null; }
+    if(!res.ok) throw new Error('HTTP ' + res.status);
+    setShareStatus('ok');
+  }).catch(function(){
+    // I valori più recenti in coda vincono su quelli della scrittura fallita.
+    if(share.room === room){ share.pending = Object.assign(body, share.pending || {}); }
+    setShareStatus('error');
+    share.retryTimer = setTimeout(function(){ share.retryTimer = null; flushRemote(); }, 5000);
+  }).then(function(){
+    share.inFlight = false;
+    flushRemote();
+  });
+}
+
+function startShare(){
+  if(!shareConfigured() || share.room) return;
+  share.room = newRoomId();
+  saveShare();
+  setShareStatus('connecting');
+  queueRemote(state);
+}
+function resumeShare(){
+  loadShare();
+  if(!share.room) return;
+  if(!shareConfigured()){ share.room = null; return; }
+  setShareStatus('connecting');
+  queueRemote(state);
+}
+function stopShare(){
+  var room = share.room;
+  if(!room) return;
+  share.room = null;
+  share.pending = null;
+  if(share.retryTimer){ clearTimeout(share.retryTimer); share.retryTimer = null; }
+  saveShare();
+  setShareStatus('off');
+  // Svuota la stanza: gli schermi collegati mostrano che la condivisione è finita.
+  getShareToken().then(function(token){
+    return fetch(dbUrl('rooms/' + room) + '?auth=' + encodeURIComponent(token), { method: 'DELETE' });
+  }).catch(function(){});
+}
+setInterval(function(){
+  if(share.room && !share.pending && !share.inFlight) queueRemote({});
+}, SHARE_HEARTBEAT_MS);
+
+function setShareStatus(status){
+  share.status = status;
+  var dot = document.getElementById('share-dot');
+  if(dot){
+    dot.classList.toggle('hidden', status === 'off');
+    dot.classList.toggle('bg-emerald-400', status === 'ok');
+    dot.classList.toggle('bg-amber-400', status !== 'ok');
+  }
+  if(!document.getElementById('share-modal').classList.contains('hidden')) renderShareModal();
+}
+function shareLink(screen){
+  var base = window.location.href.split('#')[0].split('?')[0];
+  return base + '?' + (screen === 'countdown' ? 'countdown=1' : 'stage=1') + '&room=' + share.room;
+}
+var qrLibPromise = null;
+function loadQrLib(){
+  if(window.qrcode) return Promise.resolve(window.qrcode);
+  if(!qrLibPromise){
+    qrLibPromise = new Promise(function(resolve, reject){
+      var sc = document.createElement('script');
+      sc.src = QR_LIB_URL;
+      sc.onload = function(){ window.qrcode ? resolve(window.qrcode) : reject(new Error('qr')); };
+      sc.onerror = function(){ qrLibPromise = null; reject(new Error('qr')); };
+      document.head.appendChild(sc);
+    });
+  }
+  return qrLibPromise;
+}
+function renderShareQr(link){
+  var box = document.getElementById('share-qr');
+  box.dataset.link = link;
+  loadQrLib().then(function(qrcode){
+    if(box.dataset.link !== link) return;
+    var qr = qrcode(0, 'M');
+    qr.addData(link);
+    qr.make();
+    box.innerHTML = qr.createSvgTag({ cellSize: 4, margin: 2, scalable: true });
+  }).catch(function(){
+    if(box.dataset.link === link) box.textContent = 'QR non disponibile senza internet: usa il link qui sotto.';
+  });
+}
+var SHARE_STATUS_TEXT = {
+  connecting: 'Collegamento in corso…',
+  ok: 'Condivisione attiva: gli schermi collegati si aggiornano in tempo reale.',
+  error: 'Problema di connessione: riprovo tra poco. Controlla che questo PC sia collegato a internet.'
+};
+function renderShareModal(){
+  var configured = shareConfigured();
+  document.getElementById('share-unconfigured').classList.toggle('hidden', configured);
+  document.getElementById('share-start-btn').disabled = !configured;
+  document.getElementById('share-off').classList.toggle('hidden', !!share.room);
+  document.getElementById('share-on').classList.toggle('hidden', !share.room);
+  if(!share.room) return;
+  var dot = document.getElementById('share-status-dot');
+  dot.className = 'w-2 h-2 rounded-full shrink-0 ' + (share.status === 'ok' ? 'bg-emerald-500' : 'bg-amber-400');
+  document.getElementById('share-status-text').textContent = SHARE_STATUS_TEXT[share.status] || '';
+  Array.prototype.forEach.call(document.querySelectorAll('.share-tab'), function(b){
+    var on = b.getAttribute('data-screen') === share.tab;
+    b.classList.toggle('bg-white', on);
+    b.classList.toggle('shadow-sm', on);
+    b.classList.toggle('text-gray-900', on);
+    b.classList.toggle('text-gray-500', !on);
+  });
+  var link = shareLink(share.tab);
+  var input = document.getElementById('share-link');
+  if(input.value !== link){ input.value = link; renderShareQr(link); }
+}
+function openShareModal(){
+  document.getElementById('share-modal').classList.remove('hidden');
+  renderShareModal();
+}
+function closeShareModal(){
+  document.getElementById('share-modal').classList.add('hidden');
+}
+function wireShareEvents(){
+  document.getElementById('share-btn').addEventListener('click', openShareModal);
+  document.getElementById('share-close-btn').addEventListener('click', closeShareModal);
+  document.getElementById('share-modal').addEventListener('click', function(e){ if(e.target === this) closeShareModal(); });
+  document.getElementById('share-start-btn').addEventListener('click', function(){ startShare(); renderShareModal(); });
+  document.getElementById('share-stop-btn').addEventListener('click', function(){
+    if(!window.confirm('Interrompere la condivisione? Gli schermi collegati smetteranno di aggiornarsi.')) return;
+    stopShare();
+    document.getElementById('share-link').value = '';
+    renderShareModal();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll('.share-tab'), function(b){
+    b.addEventListener('click', function(){ share.tab = b.getAttribute('data-screen'); renderShareModal(); });
+  });
+  document.getElementById('share-copy-btn').addEventListener('click', function(){
+    var input = document.getElementById('share-link');
+    var done = function(){ toast('Link copiato', 'success'); };
+    if(navigator.clipboard && window.isSecureContext){
+      navigator.clipboard.writeText(input.value).then(done, function(){ input.select(); });
+    } else { input.select(); try{ document.execCommand('copy'); done(); }catch(e){} }
+  });
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !document.getElementById('share-modal').classList.contains('hidden')) closeShareModal();
+  });
+}
+
+/* Schermo remoto: ascolta la stanza ------------------------------------ */
+var remote = { es: null, lastEventAt: 0, clockSamples: [], status: '' };
+var REMOTE_STATUS_TEXT = {
+  connecting: 'Collegamento alla regia…',
+  offline: 'Connessione persa, riprovo…',
+  ended: 'La regia ha interrotto la condivisione',
+  denied: 'Accesso alla stanza non consentito'
+};
+function setRemoteStatus(status){
+  remote.status = status;
+  var el = document.getElementById('remote-status');
+  el.textContent = REMOTE_STATUS_TEXT[status] || '';
+  el.classList.toggle('hidden', !REMOTE_STATUS_TEXT[status]);
+}
+// L'orologio del dispositivo può differire da quello della regia: ogni
+// messaggio in diretta porta l'ora della regia. Il ritardo di rete fa solo
+// sottostimare la differenza, quindi si tiene la stima più alta fra le ultime.
+function sampleClock(hostNow){
+  if(typeof hostNow !== 'number') return;
+  remote.clockSamples.push(hostNow - Date.now());
+  if(remote.clockSamples.length > 8) remote.clockSamples.shift();
+  clockSkew = Math.max.apply(null, remote.clockSamples);
+}
+function applyRemote(fields, full, live){
+  var decoded = {};
+  for(var k in fields){
+    if(!Object.prototype.hasOwnProperty.call(fields, k) || typeof fields[k] !== 'string') continue;
+    var v;
+    try{ v = JSON.parse(fields[k]); }catch(e){ continue; }
+    if(k === '_clock'){ if(live) sampleClock(v); continue; }
+    decoded[k] = v;
+  }
+  if(full){ state = Object.assign(defaultState(), decoded); }
+  else { Object.assign(state, decoded); }
+  state.display = normalizeDisplay(state.display);
+  setRemoteStatus('ok');
+  renderActive();
+}
+function onRemoteEvent(e, isPut){
+  remote.lastEventAt = Date.now();
+  var msg;
+  try{ msg = JSON.parse(e.data); }catch(err){ return; }
+  if(!msg) return;
+  if(msg.path === '/'){
+    // "put" sulla radice è la fotografia iniziale (anche dopo una riconnessione):
+    // il suo _clock può essere vecchio, quindi non si usa per l'orologio.
+    if(isPut){
+      if(!msg.data){ setRemoteStatus('ended'); return; }
+      applyRemote(msg.data, true, false);
+    } else if(msg.data){
+      applyRemote(msg.data, false, true);
+    }
+  } else {
+    var key = String(msg.path).replace(/^\//, '');
+    if(key.indexOf('/') !== -1) return;
+    var f = {};
+    f[key] = msg.data;
+    applyRemote(f, false, true);
+  }
+}
+function connectRemote(){
+  if(remote.es){ try{ remote.es.close(); }catch(e){} }
+  if(!shareConfigured() || !window.EventSource){ setRemoteStatus('denied'); return; }
+  if(remote.status !== 'ok') setRemoteStatus(remote.status === 'offline' ? 'offline' : 'connecting');
+  remote.lastEventAt = Date.now();
+  var es = new EventSource(dbUrl('rooms/' + remoteRoom + '/state'));
+  remote.es = es;
+  es.addEventListener('put', function(e){ onRemoteEvent(e, true); });
+  es.addEventListener('patch', function(e){ onRemoteEvent(e, false); });
+  es.addEventListener('keep-alive', function(){ remote.lastEventAt = Date.now(); });
+  es.addEventListener('cancel', function(){ setRemoteStatus('denied'); });
+  es.onerror = function(){ if(remote.status !== 'ended' && remote.status !== 'denied') setRemoteStatus('offline'); };
+}
+function startRemoteDisplay(){
+  connectRemote();
+  // Firebase manda un keep-alive ogni 30 secondi e la regia scrive almeno ogni
+  // 15: se tace più a lungo la connessione è morta anche se il browser non lo sa.
+  setInterval(function(){
+    if(remote.status === 'ended' || remote.status === 'denied') return;
+    if(Date.now() - remote.lastEventAt > 70000){ setRemoteStatus('offline'); connectRemote(); }
+  }, 5000);
 }
 
 /* ---------------------------------------------------------------- */
@@ -858,8 +1229,12 @@ function secondsToClock(totalSeconds){
   return s % 60 ? out + ':' + pad2(s%60) : out;
 }
 function uid(){ return 'it_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
+// Ora corrente allineata all'orologio del PC di regia (sugli schermi remoti
+// l'orologio del dispositivo può essere avanti o indietro di qualche secondo).
+var clockSkew = 0;
+function nowMs(){ return Date.now() + clockSkew; }
 function nowSecondsSinceMidnight(){
-  var d = new Date();
+  var d = new Date(nowMs());
   return d.getHours()*3600 + d.getMinutes()*60 + d.getSeconds();
 }
 function escapeHtml(str){
@@ -875,7 +1250,7 @@ function getItemElapsedSeconds(idx){
   var item = state.schedule[idx];
   if(!item) return 0;
   if(idx === state.currentIndex && state.running && state.activeStartEpoch){
-    return item.accumulatedSeconds + (Date.now() - state.activeStartEpoch) / 1000;
+    return item.accumulatedSeconds + (nowMs() - state.activeStartEpoch) / 1000;
   }
   return item.accumulatedSeconds;
 }
@@ -1433,7 +1808,7 @@ function tickDashboard(){
   if(isStage) return;
   autoAdvanceFixed();
   var clockEl = document.getElementById('header-clock');
-  if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
+  if(clockEl){ clockEl.textContent = new Date(nowMs()).toLocaleTimeString('it-IT'); }
   var total = state.schedule.length;
   var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
   if(cur){
@@ -1520,7 +1895,7 @@ function fitName(el, text){
 }
 function setClock(id){
   var clockEl = document.getElementById(id);
-  if(clockEl){ clockEl.textContent = new Date().toLocaleTimeString('it-IT'); }
+  if(clockEl){ clockEl.textContent = new Date(nowMs()).toLocaleTimeString('it-IT'); }
 }
 function renderDisplayLogo(id){
   var logoImg = document.getElementById(id);
@@ -2762,6 +3137,8 @@ function init(){
   wireEvents();
   renderActive();
   if((isStage || isCountdown) && bc){ try{ bc.postMessage({ type: 'request_state' }); }catch(e){} }
+  if(isRemoteDisplay){ startRemoteDisplay(); }
+  else if(!isStage && !isCountdown){ wireShareEvents(); resumeShare(); }
 
   setInterval(function(){
     if(isStage){ tickStage(); }
