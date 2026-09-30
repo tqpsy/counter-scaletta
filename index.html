@@ -73,6 +73,8 @@
   .disp-title-lg { font-size: calc(var(--s) * clamp(1.25rem, min(4vw, 6vh), 4.5rem)); color: rgba(255,255,255,.85); font-weight: 600; }
   .disp-status { font-size: calc(var(--s) * clamp(0.85rem, min(2vw, 3.2vh), 2.25rem)); font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.65); }
   #countdown-status { color: #E8A33D; }
+  #countdown-status.disp-late { color: #ef4444; }
+  #countdown-status.disp-started { color: #34d399; }
   .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
   .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
   .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -387,6 +389,7 @@
     <p id="countdown-status" class="disp-el disp-status text-accent" data-el="status"></p>
     <div id="countdown-timer" class="disp-el disp-timer font-mono-time text-accent" data-el="timer">00:00:00</div>
     <p id="countdown-target-label" class="disp-el disp-sub" data-el="target"></p>
+    <p id="countdown-finish" class="disp-el disp-sub" data-el="finish"></p>
   </div>
 </div>
 
@@ -552,7 +555,8 @@ var DISPLAY_ELEMENTS = {
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
-    { key: 'target', label: 'Orario di inizio', show: true, pos: 'center' }
+    { key: 'target', label: 'Orario di inizio', show: true, pos: 'center' },
+    { key: 'finish', label: 'Fine prevista (in tempo reale)', show: true, pos: 'center' }
   ]
 };
 var DISPLAY_POSITIONS = [
@@ -1182,6 +1186,33 @@ function renderDashboard(){
   renderScheduleTable();
 }
 
+// Stima della fine reale, in minuti dalla mezzanotte (condivisa con il Countdown).
+// Prima dell'inizio: se l'orario di inizio è già passato, il ritardo sposta anche la fine.
+function computeLiveFinishMin(){
+  var total = state.schedule.length;
+  var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
+  var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
+  var nowMin = nowSecondsSinceMidnight()/60;
+  if(state.currentIndex >= 0 && state.currentIndex < total){
+    var restSec = Math.max(0, getRemainingSeconds(state.currentIndex));
+    for(var i = state.currentIndex + 1; i < total; i++){
+      if(state.schedule[i].status !== 'done'){ restSec += state.schedule[i].duration * 60; }
+    }
+    return nowMin + restSec/60;
+  }
+  if(state.currentIndex === -1 && getStartDelaySeconds() > 0){
+    return nowMin + totalPlannedMin;
+  }
+  return plannedFinishMin;
+}
+// Secondi di ritardo sull'orario di inizio, finché la scaletta non è partita (0 se non in ritardo).
+function getStartDelaySeconds(){
+  if(state.currentIndex !== -1 || state.schedule.some(function(it){ return it.status === 'done'; })) return 0;
+  var late = nowSecondsSinceMidnight() - hhmmToMinutes(state.eventStart) * 60;
+  if(late < -43200){ late += 86400; } else if(late > 43200){ late -= 86400; }
+  return Math.max(0, late);
+}
+
 // Fine prevista (piano) = inizio + somma durate.
 // Stima fine reale: a evento in corso = ora attuale + residuo dell'intervento corrente + durate successive
 // (include pause e ritardi reali); prima dell'inizio = fine prevista.
@@ -1190,16 +1221,7 @@ function updateFinishEstimate(){
   var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
   var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
   document.getElementById('planned-finish').textContent = minutesToHHMM(plannedFinishMin);
-  var liveEstimateMin;
-  if(state.currentIndex >= 0 && state.currentIndex < total){
-    var restSec = Math.max(0, getRemainingSeconds(state.currentIndex));
-    for(var i = state.currentIndex + 1; i < total; i++){
-      if(state.schedule[i].status !== 'done'){ restSec += state.schedule[i].duration * 60; }
-    }
-    liveEstimateMin = nowSecondsSinceMidnight()/60 + restSec/60;
-  } else {
-    liveEstimateMin = plannedFinishMin;
-  }
+  var liveEstimateMin = computeLiveFinishMin();
   document.getElementById('live-finish-estimate').textContent = minutesToHHMM(liveEstimateMin);
   var endDiff = hhmmToMinutes(state.eventEnd) - liveEstimateMin;
   if(endDiff < -720){ endDiff += 1440; } else if(endDiff > 720){ endDiff -= 1440; }
@@ -1508,14 +1530,33 @@ function tickCountdown(){
   var statusEl = document.getElementById('countdown-status');
   var labelEl = document.getElementById('countdown-target-label');
 
-  labelEl.textContent = 'Si comincia alle ' + state.eventStart;
+  labelEl.textContent = 'Inizio previsto: ' + state.eventStart;
+  var finishEl = document.getElementById('countdown-finish');
+  if(state.schedule.length){
+    var plannedFinish = minutesToHHMM(hhmmToMinutes(state.eventStart) + state.schedule.reduce(function(s, it){ return s + it.duration; }, 0));
+    var liveFinish = minutesToHHMM(computeLiveFinishMin());
+    finishEl.textContent = 'Fine prevista: ' + liveFinish + (liveFinish !== plannedFinish ? ' (da scaletta ' + plannedFinish + ')' : '');
+  } else {
+    finishEl.textContent = '';
+  }
 
   if(remaining <= 0){
+    var late = getStartDelaySeconds();
+    if(late > 0){
+      // Orario superato ma scaletta non ancora partita: il timer conta il ritardo in rosso.
+      statusEl.textContent = 'IN RITARDO';
+      statusEl.className = 'disp-el disp-status disp-late';
+      setTimerText(timerEl, '+' + formatCountdown(late));
+      timerEl.className = TIMER_BASE_CLASS + 'text-red-500';
+      return;
+    }
     statusEl.textContent = 'L\'EVENTO È INIZIATO';
+    statusEl.className = 'disp-el disp-status disp-started';
     setTimerText(timerEl, '00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-emerald-400 animate-pulse';
     return;
   }
+  statusEl.className = 'disp-el disp-status';
   statusEl.textContent = 'MANCANO';
   setTimerText(timerEl, formatCountdown(remaining));
   var colorClass = 'text-accent';
