@@ -1285,9 +1285,19 @@ function downscaleDataURL(dataUrl, maxSide, mime, quality){
   });
 }
 var PDF_MAX_PAGES = 40;
-// Pagine inviate in ogni richiesta: abbastanza contesto per i blocchi che proseguono
-// sulla pagina dopo, poche richieste per non superare i limiti al minuto delle chiavi gratuite.
+// Solo se il PDF non si può inviare intero: pagine per richiesta, abbastanza contesto per i
+// blocchi che proseguono sulla pagina dopo e poche richieste per le chiavi gratuite.
 var PAGES_PER_REQUEST = 4;
+// Il PDF va inviato intero, in una sola richiesta, se rientra nei limiti di tutti i provider.
+var PDF_DIRECT_MAX_BYTES = 10 * 1024 * 1024;
+var PDF_DIRECT_MAX_PAGES = 100;
+function countPdfPages(file){
+  if(!window.pdfjsLib) return Promise.resolve(0);
+  try{ window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js'; }catch(e){}
+  return file.arrayBuffer().then(function(buf){
+    return window.pdfjsLib.getDocument({ data: buf }).promise;
+  }).then(function(pdf){ return pdf.numPages; }, function(){ return 0; });
+}
 function pdfToImages(file){
   if(!window.pdfjsLib){ return Promise.reject(new Error('Libreria di lettura PDF non disponibile (verifica la connessione internet).')); }
   try{
@@ -1330,11 +1340,13 @@ function fileToImages(file){
 
 function buildExtractionPrompt(firstPage, lastPage, totalPages){
   var pageInfo = '';
-  if(totalPages > 1){
+  if(totalPages > 1 && firstPage === 1 && lastPage === totalPages){
+    pageInfo = ' La scaletta ha ' + totalPages + ' pagine: leggile tutte, fino all\'ultima.';
+  } else if(totalPages > 1){
     pageInfo = (firstPage === lastPage ? ' L\'immagine è la pagina ' + firstPage : ' Le immagini sono le pagine da ' + firstPage + ' a ' + lastPage) + ' di ' + totalPages + ' della scaletta, in ordine: estrai solo i blocchi che INIZIANO in queste pagine.' +
       (firstPage > 1 ? ' Il testo in cima alla prima immagine senza un proprio orario o titolo è la continuazione di un blocco della pagina precedente: non crearne una riga. Se nessun blocco inizia in queste pagine rispondi {"items":[]}.' : '');
   }
-  return 'Analizza le immagini allegate: sono la scaletta (rundown) di un evento dal vivo, che può essere una tabella oppure un copione in cui ogni blocco è introdotto da orario e durata (es. "21.14’ (3’)", "22 25’ (5’)" o solo "21 (14’)" = 21:00, 14 minuti; in un copione ogni blocco con il suo orario è UNA riga, e le indicazioni di regia e le battute al suo interno non vanno restituite come righe separate).' + pageInfo + ' Individua OGNI riga/blocco del programma, dall\'inizio alla fine, nell\'ordine in cui compaiono: non saltare nessuna riga, non unire più righe in una sola, non riassumere, e includi anche pause, video, sigle, saluti, premiazioni e cambi palco. Se una riga ha più relatori, restituiscila comunque come una sola voce con tutti i nomi. Per ciascuno restituisci: "speaker" (nome del relatore oppure un titolo breve del blocco, al massimo 60 caratteri), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata in minuti, numero intero: usa quella indicata, altrimenti la differenza con l\'orario del blocco successivo, altrimenti una stima), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","start":"09:00","duration":15,"type":"flex"}]}';
+  return 'Analizza gli allegati: sono la scaletta (rundown) di un evento dal vivo, che può essere una tabella oppure un copione in cui ogni blocco è introdotto da orario e durata (es. "21.14’ (3’)", "22 25’ (5’)" o solo "21 (14’)" = 21:00, 14 minuti; in un copione ogni blocco con il suo orario è UNA riga, e le indicazioni di regia e le battute al suo interno non vanno restituite come righe separate).' + pageInfo + ' Individua OGNI riga/blocco del programma, dall\'inizio alla fine, nell\'ordine in cui compaiono: non saltare nessuna riga, non unire più righe in una sola, non riassumere, e includi anche pause, video, sigle, saluti, premiazioni e cambi palco. Se una riga ha più relatori, restituiscila comunque come una sola voce con tutti i nomi. Per ciascuno restituisci: "speaker" (nome del relatore oppure un titolo breve del blocco, al massimo 60 caratteri), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata in minuti, numero intero: usa quella indicata, altrimenti la differenza con l\'orario del blocco successivo, altrimenti una stima), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","start":"09:00","duration":15,"type":"flex"}]}';
 }
 
 function safeReadJson(res){
@@ -1347,20 +1359,42 @@ var RETRY_DELAYS_MS = [3000, 6000, 12000];
 function sleep(ms){ return new Promise(function(r){ setTimeout(r, ms); }); }
 function fetchWithRetry(url, opts){
   var attempt = 0;
+  function retryAfter(delay){
+    attempt++;
+    setImportProgress('Limite momentaneo, attendo ' + Math.ceil(delay / 1000) + ' s (tentativo ' + attempt + '/' + RETRY_DELAYS_MS.length + ')…');
+    return sleep(delay).then(run);
+  }
   function run(){
     return fetch(url, opts).then(function(res){
       if(res.ok || RETRYABLE_STATUS.indexOf(res.status) === -1 || attempt >= RETRY_DELAYS_MS.length) return res;
       var delay = RETRY_DELAYS_MS[attempt];
       var ra = parseFloat(res.headers.get('retry-after'));
       if(!isNaN(ra) && ra > 0){ delay = Math.min(20000, Math.max(delay, ra * 1000)); }
-      attempt++;
-      setImportProgress('Servizio occupato, nuovo tentativo ' + attempt + '/' + RETRY_DELAYS_MS.length + '…');
-      return sleep(delay).then(run);
+      if(res.status !== 429) return retryAfter(delay);
+      return res.clone().json().catch(function(){ return null; }).then(function(body){
+        var q = quotaInfo(body);
+        // Quota giornaliera esaurita: riprovare consumerebbe solo altre richieste.
+        if(q.daily) return res;
+        if(q.retryMs){ delay = Math.min(60000, Math.max(delay, q.retryMs + 1000)); }
+        return retryAfter(delay);
+      });
     }, function(){
       throw apiError(0, 'impossibile contattare il provider (verifica la connessione internet).');
     });
   }
   return run();
+}
+// Dettagli di un 429 (formato Google): quota giornaliera o per minuto, e attesa suggerita.
+function quotaInfo(body){
+  var info = { daily: false, retryMs: 0 };
+  var err = body && body.error;
+  if(!err) return info;
+  (err.details || []).forEach(function(d){
+    if(d.retryDelay){ var sec = parseFloat(d.retryDelay); if(!isNaN(sec)) info.retryMs = sec * 1000; }
+    (d.violations || []).forEach(function(v){ if(/PerDay/i.test(v.quotaId || '')) info.daily = true; });
+  });
+  if(/per ?day/i.test(err.message || '')) info.daily = true;
+  return info;
 }
 function apiError(status, msg){ var e = new Error(msg); e.status = status; return e; }
 // Messaggi comprensibili per i codici HTTP più comuni.
@@ -1370,6 +1404,9 @@ function throwApiError(providerLabel, res){
     var st = res.status, msg;
     if(st === 503 || st === 529 || st === 500 || st === 502 || st === 504){
       msg = 'Il servizio ' + providerLabel + ' è momentaneamente sovraccarico (' + st + '). Non dipende dalla tua chiave né dal file: riprova tra qualche minuto.';
+    } else if(st === 429 && quotaInfo(body).daily){
+      msg = 'Hai esaurito la quota giornaliera gratuita di ' + providerLabel + ' per il modello impostato (429). Si azzera ogni giorno alle 9:00 circa (ora italiana). Nel frattempo puoi usare un altro modello, un\'altra chiave o un altro provider nelle impostazioni.';
+      var e = apiError(st, msg); e.dailyQuota = true; throw e;
     } else if(st === 429){
       msg = 'Limite di utilizzo ' + providerLabel + ' raggiunto (429). Attendi un minuto e riprova; se persiste, hai esaurito la quota giornaliera o il credito. Dettaglio: ' + raw;
     } else if(st === 401 || st === 403){
@@ -1413,9 +1450,14 @@ function parseAIJson(text, truncated){
   return items;
 }
 
+var DATA_URL_RE = /^data:(image\/[a-zA-Z0-9.+-]+|application\/pdf);base64,(.*)$/;
+function isPdfDataUrl(d){ return d.indexOf('data:application/pdf') === 0; }
 function callOpenAIVision(images, instruction){
   var content = [{ type: 'text', text: instruction }];
-  images.forEach(function(img){ content.push({ type: 'image_url', image_url: { url: img } }); });
+  images.forEach(function(img){
+    if(isPdfDataUrl(img)){ content.push({ type: 'file', file: { filename: 'scaletta.pdf', file_data: img } }); }
+    else { content.push({ type: 'image_url', image_url: { url: img } }); }
+  });
   return fetchWithRetry('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + settings.apiKey },
@@ -1440,8 +1482,10 @@ function callOpenAIVision(images, instruction){
 function callAnthropicVision(images, instruction){
   var content = [];
   images.forEach(function(img){
-    var match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(img);
-    if(match){ content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }); }
+    var match = DATA_URL_RE.exec(img);
+    if(!match) return;
+    if(match[1] === 'application/pdf'){ content.push({ type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: match[2] } }); }
+    else { content.push({ type: 'image', source: { type: 'base64', media_type: match[1], data: match[2] } }); }
   });
   content.push({ type: 'text', text: instruction + ' Rispondi SOLO con JSON valido, senza alcun testo prima o dopo, senza blocchi di codice markdown.' });
   return fetchWithRetry('https://api.anthropic.com/v1/messages', {
@@ -1474,7 +1518,7 @@ var GEMINI_FALLBACK_MODEL = 'gemini-flash-lite-latest';
 function callGeminiVision(images, instruction){
   var parts = [{ text: instruction }];
   images.forEach(function(img){
-    var match = /^data:(image\/[a-zA-Z0-9.+-]+);base64,(.*)$/.exec(img);
+    var match = DATA_URL_RE.exec(img);
     if(match){ parts.push({ inline_data: { mime_type: match[1], data: match[2] } }); }
   });
   var model = (settings.model || defaultModelFor('gemini')).replace(/^models\//, '');
@@ -1493,9 +1537,10 @@ function callGeminiVision(images, instruction){
     });
   }
   return request(model).catch(function(err){
-    // Se il modello è sovraccarico anche dopo i tentativi, prova una volta un modello di riserva.
-    if(err.status !== 503 || model === GEMINI_FALLBACK_MODEL) throw err;
-    setImportProgress('Modello occupato, provo il modello di riserva…');
+    // Modello sovraccarico o quota giornaliera finita: prova una volta il modello di riserva,
+    // che ha una quota separata.
+    if(!(err.status === 503 || err.dailyQuota) || model === GEMINI_FALLBACK_MODEL) throw err;
+    setImportProgress(err.dailyQuota ? 'Quota giornaliera finita, provo il modello di riserva…' : 'Modello occupato, provo il modello di riserva…');
     return request(GEMINI_FALLBACK_MODEL).catch(function(){ throw err; });
   }).then(function(data){
     if(data.promptFeedback && data.promptFeedback.blockReason){ throw new Error('Richiesta bloccata da Gemini (' + data.promptFeedback.blockReason + ').'); }
@@ -1557,8 +1602,8 @@ function showImportError(msg){
   statusEl.classList.remove('hidden');
 }
 
-function extractFromImages(images, firstPage, totalPages){
-  var instruction = buildExtractionPrompt(firstPage, firstPage + images.length - 1, totalPages);
+function extractFromImages(images, firstPage, lastPage, totalPages){
+  var instruction = buildExtractionPrompt(firstPage, lastPage, totalPages);
   if(settings.provider === 'openai'){ return callOpenAIVision(images, instruction); }
   if(settings.provider === 'gemini'){ return callGeminiVision(images, instruction); }
   return callAnthropicVision(images, instruction);
@@ -1575,42 +1620,26 @@ function runExtraction(){
   if(!settings.apiKey){ toast('Configura prima la chiave API nelle impostazioni.', 'error'); openSettingsModal(); return; }
   setImportLoading(true);
   var warnings = [];
-  fileToImages(pendingFile).then(function(images){
-    if(images.length === 0){ throw new Error('Impossibile leggere il file selezionato.'); }
-    if(images.totalPages > images.length){
-      warnings.push('Il PDF ha ' + images.totalPages + ' pagine: sono state lette solo le prime ' + images.length + '.');
-    }
-    // Le pagine vanno a gruppi, in sequenza: ogni risposta resta corta e nessuna pagina viene ignorata.
-    var all = [];
-    var failed = [];
-    var firstError = null;
-    var chain = Promise.resolve();
-    var total = images.length;
-    for(var from = 0; from < total; from += PAGES_PER_REQUEST){
-      (function(from){
-        var to = Math.min(from + PAGES_PER_REQUEST, total);
-        var label = to - from === 1 ? 'pagina ' + (from + 1) : 'pagine ' + (from + 1) + '-' + to;
-        chain = chain.then(function(){
-          if(total > PAGES_PER_REQUEST){ setImportProgress('Lettura ' + label + ' di ' + total + '…'); }
-          return extractFromImages(images.slice(from, to), from + 1, total).then(function(items){
-            if(items.truncated){ warnings.push((total > 1 ? 'Nelle ' + label + ' ' : '') + 'la risposta AI era incompleta, alcune righe potrebbero mancare.'); }
-            all = all.concat(items);
-          }, function(err){
-            if(total <= PAGES_PER_REQUEST) throw err;
-            console.error(err);
-            if(!firstError) firstError = err;
-            failed.push(label);
-          });
-        });
-      })(from);
-    }
-    return chain.then(function(){
-      if(failed.length && all.length === 0) throw firstError;
-      if(failed.length){ warnings.push('Non è stato possibile leggere: ' + failed.join(', ') + ' (' + (firstError && firstError.message ? firstError.message : 'errore') + ').'); }
-      return all;
+  var file = pendingFile;
+  var isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+  var direct = !isPdf || file.size > PDF_DIRECT_MAX_BYTES ? Promise.resolve(null) : countPdfPages(file).then(function(pages){
+    if(pages > PDF_DIRECT_MAX_PAGES) return null;
+    // Una sola richiesta per tutto il PDF: nessuna pagina persa e una sola richiesta sulla quota.
+    return readFileAsDataURL(file).then(function(dataUrl){
+      dataUrl = dataUrl.replace(/^data:[^;,]*/, 'data:application/pdf');
+      setImportProgress(pages > 1 ? 'Lettura di ' + pages + ' pagine…' : 'Lettura in corso…');
+      return extractFromImages([dataUrl], 1, pages || 1, pages || 1).catch(function(err){
+        // Se il provider non accetta il PDF così com'è, si passa alle immagini delle pagine.
+        if(err && err.status === 400) return null;
+        throw err;
+      });
     });
+  });
+  direct.then(function(items){
+    return items || rasterExtraction(file, warnings);
   }).then(function(items){
     if(!items || items.length === 0){ throw new Error('Nessun intervento riconosciuto nel file.'); }
+    if(items.truncated && !warnings.length){ warnings.push('La risposta AI era incompleta, alcune righe potrebbero mancare.'); }
     applyImportedItems(items);
     if(warnings.length){
       toast(items.length + ' interventi importati, ma alcune righe potrebbero mancare.', 'warn');
@@ -1624,6 +1653,48 @@ function runExtraction(){
     showImportError(err && err.message ? err.message : 'Errore durante l\'estrazione.');
   }).finally(function(){
     setImportLoading(false);
+  });
+}
+
+function rasterExtraction(file, warnings){
+  return fileToImages(file).then(function(images){
+    if(images.length === 0){ throw new Error('Impossibile leggere il file selezionato.'); }
+    if(images.totalPages > images.length){
+      warnings.push('Il PDF ha ' + images.totalPages + ' pagine: sono state lette solo le prime ' + images.length + '.');
+    }
+    // Le pagine vanno a gruppi, in sequenza: ogni risposta resta corta e nessuna pagina viene ignorata.
+    var all = [];
+    var failed = [];
+    var firstError = null;
+    var chain = Promise.resolve();
+    var total = images.length;
+    var stopped = false;
+    for(var from = 0; from < total; from += PAGES_PER_REQUEST){
+      (function(from){
+        var to = Math.min(from + PAGES_PER_REQUEST, total);
+        var label = to - from === 1 ? 'pagina ' + (from + 1) : 'pagine ' + (from + 1) + '-' + to;
+        chain = chain.then(function(){
+          if(stopped){ failed.push(label); return; }
+          if(total > PAGES_PER_REQUEST){ setImportProgress('Lettura ' + label + ' di ' + total + '…'); }
+          return extractFromImages(images.slice(from, to), from + 1, to, total).then(function(items){
+            if(items.truncated){ warnings.push((total > 1 ? 'Nelle ' + label + ' ' : '') + 'la risposta AI era incompleta, alcune righe potrebbero mancare.'); }
+            all = all.concat(items);
+          }, function(err){
+            if(total <= PAGES_PER_REQUEST) throw err;
+            console.error(err);
+            if(!firstError) firstError = err;
+            // Con la quota giornaliera finita le richieste successive fallirebbero tutte.
+            if(err.dailyQuota) stopped = true;
+            failed.push(label);
+          });
+        });
+      })(from);
+    }
+    return chain.then(function(){
+      if(failed.length && all.length === 0) throw firstError;
+      if(failed.length){ warnings.push('Non è stato possibile leggere: ' + failed.join(', ') + ' (' + (firstError && firstError.message ? firstError.message : 'errore') + ').'); }
+      return all;
+    });
   });
 }
 
