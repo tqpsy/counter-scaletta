@@ -223,7 +223,14 @@
           <span id="import-extract-label">Estrai con AI</span>
         </button>
         <p id="import-status" class="text-xs mt-2 hidden"></p>
-        <p class="text-[11px] text-gray-400 mt-3 leading-relaxed">Provider: <span id="import-provider-label" class="font-medium text-gray-600">—</span> · <button type="button" id="import-open-settings" class="underline hover:text-gray-600">configura chiave API</button></p>
+        <div id="import-key-box" class="mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed">
+          <p id="import-provider-label" class="font-medium">—</p>
+          <p id="import-key-hint" class="mt-0.5"></p>
+          <button type="button" id="import-open-settings" class="mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors">
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.7 12.3L21 2M16 7l3 3M19 4l2 2"/></svg>
+            <span id="import-open-settings-label">Inserisci la tua chiave API</span>
+          </button>
+        </div>
       </section>
 
       <!-- Orario evento -->
@@ -340,9 +347,24 @@
         </select>
         <label class="text-xs text-gray-500 block mb-1" for="settings-model">Modello</label>
         <input type="text" id="settings-model" placeholder="es. gpt-4o" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 mb-3 font-mono-time focus:outline-none" />
-        <label class="text-xs text-gray-500 block mb-1" for="settings-apikey">Chiave API</label>
-        <input type="password" id="settings-apikey" placeholder="sk-..." autocomplete="off" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2 font-mono-time focus:outline-none" />
-        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">La chiave viene salvata solo nel localStorage di questo browser e usata per chiamare direttamente l'API del provider scelto. Non transita da nessun server terzo.</p>
+        <label class="text-xs text-gray-500 block mb-1" for="settings-apikey">La tua chiave API</label>
+        <div class="flex items-stretch gap-2">
+          <input type="password" id="settings-apikey" placeholder="sk-..." autocomplete="off" spellcheck="false" class="min-w-0 flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-2 font-mono-time focus:outline-none" />
+          <button id="settings-apikey-toggle" type="button" class="shrink-0 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-2.5 rounded-lg transition-colors" aria-label="Mostra o nascondi la chiave">Mostra</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 mt-2">
+          <button id="settings-verify-btn" type="button" class="inline-flex items-center gap-2 text-xs font-semibold border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">
+            <span id="settings-verify-spinner" class="hidden w-3.5 h-3.5 border-2 border-gray-300 border-t-gray-700 rounded-full animate-spin"></span>
+            Verifica chiave
+          </button>
+          <span id="settings-verify-status" class="text-xs"></span>
+        </div>
+        <div class="mt-3 rounded-lg bg-gray-50 border border-gray-100 px-3 py-2.5 text-[11px] text-gray-500 leading-relaxed">
+          <p class="font-semibold text-gray-600 mb-1">Come ottenere una chiave</p>
+          <p id="settings-key-help"></p>
+          <p class="mt-1">L'uso dell'API è a pagamento e viene addebitato sull'account di chi possiede la chiave.</p>
+        </div>
+        <p class="text-[11px] text-gray-400 mt-2 leading-relaxed">La chiave viene salvata solo nel localStorage di questo browser e usata per chiamare direttamente l'API del provider scelto. Non transita da nessun server terzo. Non usarla su computer condivisi o pubblici.</p>
         <button id="settings-clear-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 mt-2 transition-colors">Rimuovi chiave salvata</button>
       </div>
 
@@ -773,10 +795,33 @@ function setFavicon(href){
   if(touch) touch.href = href;
 }
 
+function providerName(provider){ return provider === 'openai' ? 'OpenAI' : 'Anthropic (Claude)'; }
+function maskKey(key){ return key ? '••••' + key.slice(-4) : ''; }
+function guessProviderFromKey(key){
+  if(/^sk-ant-/.test(key)) return 'anthropic';
+  if(/^sk-/.test(key)) return 'openai';
+  return null;
+}
 function updateImportProviderLabel(){
   var el = document.getElementById('import-provider-label');
   if(!el) return;
-  el.textContent = (settings.provider === 'openai' ? 'OpenAI' : 'Anthropic') + (settings.apiKey ? ' (chiave configurata)' : ' (chiave NON configurata)');
+  var box = document.getElementById('import-key-box');
+  var hint = document.getElementById('import-key-hint');
+  var btn = document.getElementById('import-open-settings');
+  var btnLabel = document.getElementById('import-open-settings-label');
+  if(settings.apiKey){
+    el.textContent = 'Chiave API ' + providerName(settings.provider) + ' configurata (' + maskKey(settings.apiKey) + ')';
+    hint.textContent = 'Modello: ' + (settings.model || defaultModelFor(settings.provider));
+    box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-emerald-200 bg-emerald-50 text-emerald-800';
+    btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-white border border-emerald-200 hover:border-emerald-400 text-emerald-800';
+    btnLabel.textContent = 'Modifica chiave API';
+  } else {
+    el.textContent = 'Nessuna chiave API configurata';
+    hint.textContent = 'Per leggere la scaletta con l\'AI inserisci la tua chiave personale OpenAI o Anthropic. Resta salvata solo su questo dispositivo.';
+    box.className = 'mt-3 rounded-lg border px-3 py-2.5 text-xs leading-relaxed border-amber-200 bg-amber-50 text-amber-900';
+    btn.className = 'mt-2 inline-flex items-center gap-1.5 font-semibold px-2.5 py-1.5 rounded-md transition-colors bg-accent hover:bg-accent-soft text-ink';
+    btnLabel.textContent = 'Inserisci la tua chiave API';
+  }
 }
 
 function renderDashboard(){
@@ -1322,11 +1367,53 @@ function runExtraction(){
 /* ---------------------------------------------------------------- */
 /* Impostazioni (modale)                                             */
 /* ---------------------------------------------------------------- */
+var KEY_HELP = {
+  openai: { url: 'https://platform.openai.com/api-keys', label: 'platform.openai.com/api-keys', placeholder: 'sk-proj-...' },
+  anthropic: { url: 'https://console.anthropic.com/settings/keys', label: 'console.anthropic.com/settings/keys', placeholder: 'sk-ant-...' }
+};
+function updateSettingsKeyHelp(){
+  var provider = document.getElementById('settings-provider').value;
+  var info = KEY_HELP[provider] || KEY_HELP.openai;
+  document.getElementById('settings-apikey').placeholder = info.placeholder;
+  var help = document.getElementById('settings-key-help');
+  help.innerHTML = '1. Accedi (o registrati) su <a href="' + info.url + '" target="_blank" rel="noopener noreferrer" class="underline text-gray-700 hover:text-accent">' + info.label + '</a>.<br>' +
+    '2. Crea una nuova chiave e copiala.<br>3. Incollala qui sopra, premi "Verifica chiave" e poi "Salva impostazioni".';
+}
+function setVerifyStatus(msg, kind){
+  var el = document.getElementById('settings-verify-status');
+  el.textContent = msg || '';
+  el.className = 'text-xs ' + (kind === 'ok' ? 'text-emerald-600 font-medium' : kind === 'error' ? 'text-red-600 font-medium' : 'text-gray-500');
+}
 function openSettingsModal(){
   document.getElementById('settings-provider').value = settings.provider;
   document.getElementById('settings-apikey').value = settings.apiKey;
+  document.getElementById('settings-apikey').type = 'password';
+  document.getElementById('settings-apikey-toggle').textContent = 'Mostra';
   document.getElementById('settings-model').value = settings.model;
+  updateSettingsKeyHelp();
+  setVerifyStatus('');
   document.getElementById('settings-modal').classList.remove('hidden');
+  if(!settings.apiKey){ setTimeout(function(){ document.getElementById('settings-apikey').focus(); }, 50); }
+}
+// Verifica la chiave con una chiamata gratuita all'elenco modelli del provider.
+function verifyApiKey(provider, key){
+  var req = provider === 'openai'
+    ? fetch('https://api.openai.com/v1/models', { headers: { 'Authorization': 'Bearer ' + key } })
+    : fetch('https://api.anthropic.com/v1/models', { headers: {
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      } });
+  return req.then(function(res){
+    if(res.ok) return true;
+    return safeReadJson(res).then(function(body){
+      var msg = body && body.error && body.error.message ? body.error.message : res.statusText;
+      if(res.status === 401 || res.status === 403){ msg = 'chiave non valida o non autorizzata'; }
+      throw new Error(msg + ' (' + res.status + ')');
+    });
+  }, function(){
+    throw new Error('impossibile contattare il provider (verifica la connessione)');
+  });
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').classList.add('hidden');
@@ -1354,11 +1441,47 @@ function wireEvents(){
   document.getElementById('open-countdown-btn-mobile').addEventListener('click', openCountdown);
   document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
   document.getElementById('settings-close-btn').addEventListener('click', closeSettingsModal);
+  document.addEventListener('keydown', function(e){
+    if(e.key === 'Escape' && !document.getElementById('settings-modal').classList.contains('hidden')){ closeSettingsModal(); }
+  });
   document.getElementById('settings-modal').addEventListener('click', function(e){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
   });
+  document.getElementById('settings-apikey-toggle').addEventListener('click', function(){
+    var input = document.getElementById('settings-apikey');
+    var show = input.type === 'password';
+    input.type = show ? 'text' : 'password';
+    this.textContent = show ? 'Nascondi' : 'Mostra';
+  });
+  document.getElementById('settings-apikey').addEventListener('input', function(e){
+    setVerifyStatus('');
+    var guessed = guessProviderFromKey(e.target.value.trim());
+    var providerSel = document.getElementById('settings-provider');
+    if(guessed && guessed !== providerSel.value){
+      providerSel.value = guessed;
+      providerSel.dispatchEvent(new Event('change'));
+      setVerifyStatus('Provider impostato automaticamente su ' + providerName(guessed) + '.', 'info');
+    }
+  });
+  document.getElementById('settings-verify-btn').addEventListener('click', function(){
+    var key = document.getElementById('settings-apikey').value.trim();
+    var provider = document.getElementById('settings-provider').value;
+    if(!key){ setVerifyStatus('Inserisci prima una chiave.', 'error'); return; }
+    var btn = this;
+    var spinner = document.getElementById('settings-verify-spinner');
+    btn.disabled = true; spinner.classList.remove('hidden');
+    setVerifyStatus('Verifica in corso…', 'info');
+    verifyApiKey(provider, key).then(function(){
+      setVerifyStatus('Chiave valida ✓', 'ok');
+    }).catch(function(err){
+      setVerifyStatus('Errore: ' + err.message, 'error');
+    }).finally(function(){
+      btn.disabled = false; spinner.classList.add('hidden');
+    });
+  });
   document.getElementById('settings-provider').addEventListener('change', function(e){
     var provider = e.target.value;
+    updateSettingsKeyHelp();
     var modelInput = document.getElementById('settings-model');
     if(!modelInput.value || modelInput.value === defaultModelFor('openai') || modelInput.value === defaultModelFor('anthropic') || modelInput.value === 'claude-sonnet-4-5'){
       modelInput.value = defaultModelFor(provider);
@@ -1370,7 +1493,7 @@ function wireEvents(){
     settings.model = document.getElementById('settings-model').value.trim() || defaultModelFor(settings.provider);
     saveSettings();
     updateImportProviderLabel();
-    toast('Impostazioni salvate.', 'success');
+    toast(settings.apiKey ? 'Impostazioni salvate: ora puoi importare la scaletta con l\'AI.' : 'Impostazioni salvate.', 'success');
     closeSettingsModal();
   });
   document.getElementById('settings-clear-btn').addEventListener('click', function(){
@@ -1378,6 +1501,10 @@ function wireEvents(){
     settings = defaultSettings();
     saveSettings();
     document.getElementById('settings-apikey').value = '';
+    document.getElementById('settings-provider').value = settings.provider;
+    document.getElementById('settings-model').value = settings.model;
+    updateSettingsKeyHelp();
+    setVerifyStatus('');
     updateImportProviderLabel();
     toast('Chiave API rimossa.', 'success');
   });
