@@ -74,6 +74,10 @@
           class="bg-transparent font-display text-lg sm:text-xl font-semibold tracking-tight w-full focus:outline-none border-b border-transparent focus:border-accent/60 truncate py-0.5" />
         <p class="text-xs text-white/45 font-mono-time" id="header-clock">--:--:--</p>
       </div>
+      <button id="open-both-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0" title="Apre Stage Display e Countdown insieme">
+        <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
+        Apri entrambi
+      </button>
       <button id="open-countdown-btn" type="button" class="hidden sm:inline-flex items-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors shrink-0">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
         Apri Countdown
@@ -94,6 +98,10 @@
       <button id="open-countdown-btn-mobile" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors">
         <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
         Apri Countdown
+      </button>
+      <button id="open-both-btn-mobile" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 text-white text-sm font-semibold px-3.5 py-2.5 rounded-lg hover:bg-white/15 transition-colors">
+        <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="12" height="9" rx="1.5"/><path d="M9 17h10.5a1.5 1.5 0 0 0 1.5-1.5V9"/></svg>
+        Apri entrambi
       </button>
     </div>
   </header>
@@ -1921,13 +1929,38 @@ function closeSettingsModal(){
 /* ---------------------------------------------------------------- */
 /* Stage Display: apertura finestra                                  */
 /* ---------------------------------------------------------------- */
+// Ogni schermo ha la sua finestra con nome: ripremendo il pulsante si riporta
+// in primo piano quella già aperta invece di aprirne un doppione (con
+// "noopener" il browser ignorava il nome e apriva sempre una finestra nuova).
+var displayWindows = {};
+function openDisplayWindow(name, query){
+  var w = displayWindows[name];
+  if(!w || w.closed){
+    // Con l'URL vuoto il browser restituisce la finestra con quel nome se
+    // esiste già (anche dopo aver ricaricato la dashboard), senza ricaricarla.
+    w = window.open('', name, 'width=1366,height=768');
+    if(!w) return false;
+    var blank = false;
+    try{ blank = w.location.href === 'about:blank'; }catch(e){ blank = false; }
+    if(blank){ w.location.href = window.location.href.split('#')[0].split('?')[0] + query; }
+    displayWindows[name] = w;
+  }
+  try{ w.focus(); }catch(e){}
+  return true;
+}
+function warnPopupBlocked(){
+  toast('Il browser ha bloccato una finestra: consenti i popup per questo sito e riprova.', 'warn');
+}
 function openStage(){
-  var url = window.location.href.split('#')[0].split('?')[0] + '?stage=1';
-  window.open(url, 'regiaTempiStage', 'width=1366,height=768,noopener');
+  if(!openDisplayWindow('regiaTempiStage', '?stage=1')) warnPopupBlocked();
 }
 function openCountdown(){
-  var url = window.location.href.split('#')[0].split('?')[0] + '?countdown=1';
-  window.open(url, 'regiaTempiCountdown', 'width=1366,height=768,noopener');
+  if(!openDisplayWindow('regiaTempiCountdown', '?countdown=1')) warnPopupBlocked();
+}
+function openBoth(){
+  var okCountdown = openDisplayWindow('regiaTempiCountdown', '?countdown=1');
+  var okStage = openDisplayWindow('regiaTempiStage', '?stage=1');
+  if(!okCountdown || !okStage) warnPopupBlocked();
 }
 
 /* ---------------------------------------------------------------- */
@@ -1938,6 +1971,8 @@ function wireEvents(){
   document.getElementById('open-stage-btn-mobile').addEventListener('click', openStage);
   document.getElementById('open-countdown-btn').addEventListener('click', openCountdown);
   document.getElementById('open-countdown-btn-mobile').addEventListener('click', openCountdown);
+  document.getElementById('open-both-btn').addEventListener('click', openBoth);
+  document.getElementById('open-both-btn-mobile').addEventListener('click', openBoth);
   document.getElementById('settings-btn').addEventListener('click', openSettingsModal);
   document.getElementById('settings-close-btn').addEventListener('click', closeSettingsModal);
   document.addEventListener('keydown', function(e){
