@@ -66,8 +66,8 @@
   .disp-slot-r { align-items: flex-end; text-align: right; }
   .disp-slot-c { flex: 0 1 auto; max-width: 70%; align-items: center; text-align: center; }
   .disp-mid { flex: 1 1 auto; min-height: 0; align-items: center; justify-content: center; text-align: center; gap: min(2vh, 1.25rem); }
-  .disp-el { --s: 1; --fit: 1; margin: 0; }
-  .disp-logo { height: calc(var(--s) * clamp(2rem, 8vh, 7rem)); max-width: 30vw; object-fit: contain; opacity: .9; }
+  .disp-el { --s: 1; --fit: 1; margin: 0; flex-shrink: 0; }
+  .disp-logo { height: calc(var(--s) * clamp(2rem, 8vh, 7rem)); max-height: 80vh; max-width: 90vw; object-fit: contain; opacity: .9; }
   .disp-clock { font-size: calc(var(--s) * clamp(0.9rem, min(1.8vw, 3vh), 2.5rem)); color: rgba(255,255,255,.6); font-variant-numeric: tabular-nums; }
   .disp-title { font-size: calc(var(--s) * clamp(0.85rem, min(1.8vw, 3vh), 2rem)); color: rgba(255,255,255,.6); font-weight: 500; letter-spacing: .02em; }
   .disp-title-lg { font-size: calc(var(--s) * clamp(1.25rem, min(4vw, 6vh), 4.5rem)); color: rgba(255,255,255,.85); font-weight: 600; }
@@ -77,7 +77,7 @@
   #countdown-status.disp-started { color: #34d399; }
   .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
   .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
-  .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * var(--fit) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .disp-progress { width: min(80vw, 70rem); height: calc(var(--s) * max(6px, 1.2vh)); border-radius: 9999px; background: rgba(255,255,255,.12); overflow: hidden; }
   .disp-progress > div { height: 100%; width: 0; border-radius: inherit; background: #34d399; transition: width .25s linear; }
   .disp-msg { font-size: calc(var(--s) * clamp(1.5rem, min(5vw, 8vh), 6rem)); font-weight: 700; line-height: 1.1; color: #0b0b0b; background: #fde047; padding: .2em .6em; border-radius: .3em; max-width: 94vw; overflow-wrap: anywhere; }
@@ -464,7 +464,7 @@
     <p id="countdown-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
     <p id="countdown-event-title" class="disp-el disp-title disp-title-lg font-display" data-el="title"></p>
     <p id="countdown-status" class="disp-el disp-status text-accent" data-el="status"></p>
-    <div id="countdown-timer" class="disp-el disp-timer font-mono-time text-accent" data-el="timer">00:00:00</div>
+    <div id="countdown-timer" class="disp-el disp-timer font-mono-time text-accent" data-el="timer">00:00</div>
     <p id="countdown-target-label" class="disp-el disp-sub" data-el="target"></p>
     <p id="countdown-finish" class="disp-el disp-sub" data-el="finish"></p>
   </div>
@@ -703,7 +703,7 @@ function defaultState(){
 // "big" = elementi grandi, che possono stare solo in alto, al centro o in basso.
 var DISPLAY_ELEMENTS = {
   stage: [
-    { key: 'logo', label: 'Logo', show: true, pos: 'tl' },
+    { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
@@ -714,7 +714,7 @@ var DISPLAY_ELEMENTS = {
     { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
   ],
   countdown: [
-    { key: 'logo', label: 'Logo', show: true, pos: 'tl' },
+    { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
@@ -732,7 +732,9 @@ var DISPLAY_POSITIONS = [
   { value: 'bottom', label: 'In basso', big: true },
   { value: 'br', label: 'In basso a destra' }
 ];
-var DISPLAY_SIZES = [50, 60, 70, 80, 90, 100, 115, 130, 150, 175, 200];
+var DISPLAY_SIZES = [50, 60, 70, 80, 90, 100, 115, 130, 150, 175, 200, 250, 300, 400, 500, 600];
+var DISPLAY_MAX_SIZE = 200;
+function maxSizeFor(def){ return def.maxSize || DISPLAY_MAX_SIZE; }
 function defaultDisplay(){
   var d = {};
   Object.keys(DISPLAY_ELEMENTS).forEach(function(screen){
@@ -759,7 +761,7 @@ function normalizeDisplay(d){
       var dst = out[screen][el.key];
       if(typeof cfg.show === 'boolean') dst.show = cfg.show;
       var size = Number(cfg.size);
-      if(size >= 30 && size <= 300) dst.size = size;
+      if(size >= 30 && size <= maxSizeFor(el)) dst.size = size;
       if(isValidPosition(el, cfg.pos)) dst.pos = cfg.pos;
     });
   });
@@ -1290,18 +1292,16 @@ function startRemoteDisplay(){
 /* Utility                                                            */
 /* ---------------------------------------------------------------- */
 function pad2(n){ return String(Math.floor(Math.abs(n))).padStart(2,'0'); }
+// Timer: ore:minuti:secondi, ma le ore compaiono solo quando ci sono (sotto l'ora MM:SS).
+function formatTimer(totalSeconds){
+  var s = Math.max(0, Math.round(totalSeconds));
+  return s >= 3600 ? formatHMS(s) : pad2(Math.floor(s/60)) + ':' + pad2(s%60);
+}
 function formatSecondsSigned(totalSeconds){
-  var sign = totalSeconds < 0 ? '-' : '';
-  var abs = Math.round(Math.abs(totalSeconds));
-  var m = Math.floor(abs/60);
-  var s = abs % 60;
-  return sign + pad2(m) + ':' + pad2(s);
+  return (totalSeconds < 0 ? '-' : '') + formatTimer(Math.abs(totalSeconds));
 }
 function formatSecondsDelay(totalSeconds){
-  var abs = Math.round(Math.abs(totalSeconds));
-  var m = Math.floor(abs/60);
-  var s = abs % 60;
-  return (totalSeconds < 0 ? '-' : '+') + pad2(m) + ':' + pad2(s);
+  return (totalSeconds < 0 ? '-' : '+') + formatTimer(Math.abs(totalSeconds));
 }
 function hhmmToMinutes(hhmm){
   if(!hhmm) return 0;
@@ -2037,6 +2037,31 @@ function setTimerText(el, text){
     el.style.setProperty('--chw', (Math.max(text.length, 5) * 0.62).toFixed(2));
   }
 }
+// Se gli elementi al centro non ci stanno in altezza (per esempio con un logo
+// molto grande), il timer rimpicciolisce quanto basta invece di sovrapporsi.
+var midFitKey = '';
+function fitMiddle(screen){
+  var mid = document.getElementById(screen + '-slot-center');
+  var timer = document.getElementById(screen + '-timer');
+  var key = window.innerWidth + 'x' + window.innerHeight + '|' + timer.textContent.length + '|' + appliedLayoutKey + '|' + lastFitText + '|' + (state.stageMessage || '');
+  if(key === midFitKey) return;
+  midFitKey = key;
+  var fit = 1;
+  timer.style.setProperty('--fit', fit);
+  if(timer.parentNode !== mid) return;
+  var gap = parseFloat(getComputedStyle(mid).rowGap) || 0;
+  function overflows(){
+    var h = 0, n = 0;
+    Array.prototype.forEach.call(mid.children, function(el){
+      if(el.offsetParent !== null || el.offsetHeight){ h += el.offsetHeight; n++; }
+    });
+    return h + gap * Math.max(0, n - 1) > mid.clientHeight + 1;
+  }
+  while(fit > 0.4 && overflows()){
+    fit = Math.round((fit - 0.05) * 100) / 100;
+    timer.style.setProperty('--fit', fit);
+  }
+}
 // Il nome va a capo su due righe e, se non basta, rimpicciolisce.
 var lastFitText = null;
 function fitName(el, text){
@@ -2140,11 +2165,7 @@ function renderCountdown(){
   applyDisplayLayout('countdown');
   tickCountdown();
 }
-// Sotto l'ora mostra solo minuti e secondi: il timer diventa più grande.
-function formatCountdown(sec){
-  var t = formatHMS(sec);
-  return sec < 3600 ? t.slice(3) : t;
-}
+function formatCountdown(sec){ return formatTimer(sec); }
 function tickCountdown(){
   setClock('countdown-clock');
 
@@ -2885,7 +2906,7 @@ function renderDisplaySettings(){
   });
   document.getElementById('display-settings-rows').innerHTML = DISPLAY_ELEMENTS[screen].map(function(def){
     var c = cfg[def.key];
-    var sizeOpts = DISPLAY_SIZES.concat(DISPLAY_SIZES.indexOf(c.size) === -1 ? [c.size] : []).sort(function(a, b){ return a - b; }).map(function(v){
+    var sizeOpts = DISPLAY_SIZES.filter(function(v){ return v <= maxSizeFor(def); }).concat(DISPLAY_SIZES.indexOf(c.size) === -1 ? [c.size] : []).sort(function(a, b){ return a - b; }).map(function(v){
       return '<option value="' + v + '"' + (v === c.size ? ' selected' : '') + '>' + v + '%</option>';
     }).join('');
     var posOpts = DISPLAY_POSITIONS.filter(function(p){ return p.big || !def.big; }).map(function(p){
@@ -3026,7 +3047,11 @@ function toggleFullscreen(){
 function setupDisplayControls(root){
   // Cambiando dimensione della finestra il nome va ridimensionato di nuovo.
   window.addEventListener('resize', function(){ lastFitText = null; });
-  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; }); }
+  // Il logo cambia l'altezza disponibile solo quando l'immagine è caricata.
+  Array.prototype.forEach.call(root.querySelectorAll('.disp-logo'), function(img){
+    img.addEventListener('load', function(){ midFitKey = ''; });
+  });
+  if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ lastFitText = null; midFitKey = ''; }); }
   if(isEmbed) return;
   var btn = document.getElementById('disp-fs-btn');
   var canFullscreen = !!(document.fullscreenEnabled || document.webkitFullscreenEnabled);
@@ -3225,9 +3250,13 @@ function wireEvents(){
     if(file.type.indexOf('image/') !== 0){ toast('Seleziona un file immagine per il logo (PNG, JPG, SVG...).', 'error'); return; }
     e.target.value = '';
     readFileAsDataURL(file).then(function(dataUrl){
-      // Gli SVG leggeri restano vettoriali; il resto viene ridotto a 256px PNG.
+      // Gli SVG leggeri restano vettoriali; il resto viene ridotto a 1024px (WebP
+      // con trasparenza), così resta nitido anche ingrandito sullo Stage. Se il
+      // browser non sa creare WebP e il file viene troppo pesante, si scende a 640px PNG.
       if(file.type === 'image/svg+xml' && dataUrl.length < 100000){ return dataUrl; }
-      return downscaleDataURL(dataUrl, 256, 'image/png');
+      return downscaleDataURL(dataUrl, 1024, 'image/webp', 0.9).then(function(small){
+        return small.length > 700000 ? downscaleDataURL(dataUrl, 640, 'image/png') : small;
+      });
     }).then(function(dataUrl){
       state.logo = dataUrl;
       broadcastState();
@@ -3389,8 +3418,8 @@ function init(){
   else if(!isStage && !isCountdown){ wireShareEvents(); resumeShare(); }
 
   setInterval(function(){
-    if(isStage){ tickStage(); }
-    else if(isCountdown){ tickCountdown(); }
+    if(isStage){ tickStage(); fitMiddle('stage'); }
+    else if(isCountdown){ tickCountdown(); fitMiddle('countdown'); }
     else { tickDashboard(); }
   }, 250);
 }
