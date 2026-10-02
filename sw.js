@@ -1,7 +1,7 @@
 // Service worker di Regia Tempi: rende dashboard, Stage Display e Countdown
 // utilizzabili anche senza connessione, una volta aperti almeno una volta online.
 // Aumentare CACHE_VERSION a ogni modifica dei file in PRECACHE.
-var CACHE_VERSION = 'v9';
+var CACHE_VERSION = 'v10';
 var APP_CACHE = 'regia-tempi-app-' + CACHE_VERSION;
 var RUNTIME_CACHE = 'regia-tempi-runtime-' + CACHE_VERSION;
 var PRECACHE = ['./', './index.html', './app.css', './manifest.webmanifest', './icon.svg', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-32.png', './vendor/qrcode.js'];
