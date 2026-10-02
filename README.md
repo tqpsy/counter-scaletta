@@ -64,7 +64,7 @@ Il programma non è firmato, quindi Windows può mostrare "PC protetto": clic su
 
 ### Come si aggiorna
 
-Il workflow "App per PC" (`.github/workflows/app-pc.yml`) ricostruisce il programma a ogni modifica dei file dell'app su `main` e pubblica una Release nuova `pc-v1.0.<numero del run>`, con il file `latest.yml` che la descrive. Si può anche avviare a mano da Actions → "App per PC" → Run workflow.
+Il workflow "App per PC" (`.github/workflows/app-pc.yml`) ricostruisce il programma a ogni modifica dei file dell'app su `main` e pubblica una Release nuova `pc-v1.0.<numero del run>`, con il file `latest.yml` che la descrive. Si può anche avviare a mano da Actions → "App per PC" → Run workflow. Dopo la pubblicazione, nella descrizione della PR unita compare la riga "Pubblicata nella versione …" con il link alla Release.
 
 Il programma installato controlla gli aggiornamenti all'avvio (e ogni 6 ore se resta aperto): scarica la versione nuova in background e chiede se riavviare, altrimenti la installa alla chiusura. Nelle impostazioni c'è anche "Cerca aggiornamenti". La versione portatile non si aggiorna da sola: avvisa e apre la pagina per scaricare il file nuovo.
 
