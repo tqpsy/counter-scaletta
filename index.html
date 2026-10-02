@@ -197,7 +197,7 @@
         <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:mb-4">
         <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 xl:mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
 
-        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
+        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00:00</div>
         <p id="onair-planned" class="text-xs text-white/40 mb-5 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
         </div>
 
@@ -438,7 +438,7 @@
     <p id="stage-status" class="disp-el disp-status" data-el="status"></p>
     <p id="stage-message" class="disp-el disp-msg font-display" data-el="message" role="status" aria-live="assertive"></p>
     <p id="stage-name" class="disp-el disp-name font-display" data-el="name">In attesa di inizio</p>
-    <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00</div>
+    <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00:00</div>
     <div id="stage-progress" class="disp-el disp-progress" data-el="progress"><div id="stage-progress-bar"></div></div>
     <p id="stage-next" class="disp-el disp-sub" data-el="next"></p>
   </div>
@@ -1290,18 +1290,12 @@ function startRemoteDisplay(){
 /* Utility                                                            */
 /* ---------------------------------------------------------------- */
 function pad2(n){ return String(Math.floor(Math.abs(n))).padStart(2,'0'); }
+// Tutti i timer sono in ore:minuti:secondi (HH:MM:SS).
 function formatSecondsSigned(totalSeconds){
-  var sign = totalSeconds < 0 ? '-' : '';
-  var abs = Math.round(Math.abs(totalSeconds));
-  var m = Math.floor(abs/60);
-  var s = abs % 60;
-  return sign + pad2(m) + ':' + pad2(s);
+  return (totalSeconds < 0 ? '-' : '') + formatHMS(Math.abs(totalSeconds));
 }
 function formatSecondsDelay(totalSeconds){
-  var abs = Math.round(Math.abs(totalSeconds));
-  var m = Math.floor(abs/60);
-  var s = abs % 60;
-  return (totalSeconds < 0 ? '-' : '+') + pad2(m) + ':' + pad2(s);
+  return (totalSeconds < 0 ? '-' : '+') + formatHMS(Math.abs(totalSeconds));
 }
 function hhmmToMinutes(hhmm){
   if(!hhmm) return 0;
@@ -1747,7 +1741,7 @@ function renderDashboard(){
     nameEl.textContent = 'Scaletta completata';
     statusEl.textContent = 'TERMINATO';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
-    timerEl.textContent = '00:00';
+    timerEl.textContent = '00:00:00';
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = '—';
@@ -1756,7 +1750,7 @@ function renderDashboard(){
     nameEl.textContent = 'Nessun intervento attivo';
     statusEl.textContent = 'IN ATTESA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
-    timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
+    timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00:00';
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = total > 0 ? state.schedule[0].speaker : '—';
@@ -2095,7 +2089,7 @@ function tickStage(){
 
   if(finished){
     fitName(nameEl, 'Evento terminato');
-    setTimerText(timerEl, '00:00');
+    setTimerText(timerEl, '00:00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-white/30';
     statusEl.textContent = '';
     statusEl.className = statusClass;
@@ -2108,7 +2102,7 @@ function tickStage(){
     fitName(nameEl, state.eventTitle || 'In attesa di inizio');
     statusEl.textContent = 'IN ATTESA';
     statusEl.className = statusClass;
-    setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
+    setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
     nextEl.textContent = total > 0 ? ('Si parte con: ' + state.schedule[0].speaker) : '';
     barEl.style.width = '0';
@@ -2140,11 +2134,7 @@ function renderCountdown(){
   applyDisplayLayout('countdown');
   tickCountdown();
 }
-// Sotto l'ora mostra solo minuti e secondi: il timer diventa più grande.
-function formatCountdown(sec){
-  var t = formatHMS(sec);
-  return sec < 3600 ? t.slice(3) : t;
-}
+function formatCountdown(sec){ return formatHMS(sec); }
 function tickCountdown(){
   setClock('countdown-clock');
 
@@ -2179,7 +2169,7 @@ function tickCountdown(){
     }
     statusEl.textContent = 'L\'EVENTO È INIZIATO';
     statusEl.className = 'disp-el disp-status disp-started';
-    setTimerText(timerEl, '00:00');
+    setTimerText(timerEl, '00:00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-emerald-400 animate-pulse';
     return;
   }
