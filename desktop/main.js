@@ -9,6 +9,7 @@ var electron = require('electron');
 var app = electron.app;
 var BrowserWindow = electron.BrowserWindow;
 var dialog = electron.dialog;
+var ipcMain = electron.ipcMain;
 var session = electron.session;
 var shell = electron.shell;
 var path = require('path');
@@ -67,7 +68,7 @@ function createMainWindow(url){
     width: 1440, height: 900, minWidth: 360, minHeight: 500,
     title: 'Regia Tempi', backgroundColor: '#ffffff', show: false
   }, windowOptions));
-  mainWindow.once('ready-to-show', function(){ mainWindow.maximize(); mainWindow.show(); });
+  mainWindow.once('ready-to-show', function(){ mainWindow.maximize(); mainWindow.show(); mainWindow.focus(); });
   // Chiusa la dashboard si chiudono anche Stage e Countdown.
   mainWindow.on('closed', function(){ mainWindow = null; app.quit(); });
   mainWindow.loadURL(url);
@@ -84,6 +85,25 @@ function setupPermissions(){
     return isAppUrl((origin || '') + '/') && allowed.indexOf(permission) !== -1;
   });
 }
+
+// confirm() e alert() della pagina (vedi preload.js): finestra di Windows,
+// poi il focus torna alla pagina così si può continuare a scrivere.
+ipcMain.on('regia-dialog', function(e, kind, message){
+  var win = BrowserWindow.fromWebContents(e.sender);
+  var isConfirm = kind === 'confirm';
+  var opts = {
+    type: isConfirm ? 'question' : 'info', title: 'Regia Tempi', message: message, noLink: true,
+    buttons: isConfirm ? ['OK', 'Annulla'] : ['OK'], defaultId: 0, cancelId: isConfirm ? 1 : 0
+  };
+  var choice = win ? dialog.showMessageBoxSync(win, opts) : dialog.showMessageBoxSync(opts);
+  e.returnValue = isConfirm ? choice === 0 : true;
+  setTimeout(function(){
+    if(!win || win.isDestroyed()) return;
+    win.blur();
+    win.focus();
+    e.sender.focus();
+  }, 0);
+});
 
 // Finestre aperte dalla pagina: Stage e Countdown restano nell'app, i link
 // esterni (es. GitHub, Firebase) si aprono nel browser.
