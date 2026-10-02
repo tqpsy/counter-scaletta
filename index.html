@@ -242,6 +242,15 @@
         <div class="text-xs text-white/50 border-t border-white/10 pt-3">
           Prossimo: <span id="onair-next" class="text-white/80 font-medium">—</span>
         </div>
+
+        <!-- Timeline dell'evento: un segmento per intervento, largo quanto la sua durata. -->
+        <div id="onair-timeline-wrap" class="hidden mt-3">
+          <div id="onair-timeline" class="flex gap-0.5 h-1.5"></div>
+          <div class="flex justify-between mt-1 text-[10px] text-white/35 font-mono-time">
+            <span id="onair-timeline-start"></span>
+            <span id="onair-timeline-end"></span>
+          </div>
+        </div>
       </section>
 
       <!-- Tabella scaletta -->
@@ -1947,6 +1956,7 @@ function renderDashboard(){
   document.getElementById('next-btn').disabled = noItems || finished;
 
   updateFinishEstimate();
+  updateTimeline();
   renderScheduleTable();
 }
 
@@ -2153,6 +2163,43 @@ function tickDashboard(){
   }
   updateDelayPill(getTotalDelaySeconds());
   updateFinishEstimate();
+  updateTimeline();
+}
+
+// La struttura si ricrea solo quando cambia la scaletta; a ogni tick si
+// aggiorna il riempimento dell'intervento in corso.
+var timelineKey = null;
+function updateTimeline(){
+  var wrap = document.getElementById('onair-timeline-wrap');
+  var bar = document.getElementById('onair-timeline');
+  var total = state.schedule.length;
+  if(total === 0){ wrap.classList.add('hidden'); timelineKey = null; return; }
+  wrap.classList.remove('hidden');
+  var key = state.currentIndex + '|' + state.schedule.map(function(it){ return it.id + ':' + it.duration + ':' + it.type + ':' + it.status; }).join(',');
+  if(key !== timelineKey){
+    timelineKey = key;
+    bar.innerHTML = state.schedule.map(function(it, i){
+      var bg = it.type === 'fixed' ? 'bg-violet-400/25' : 'bg-white/10';
+      return '<div class="relative h-full rounded-full overflow-hidden ' + bg + '" style="flex: ' + Math.max(it.duration, 0.5) + ' 1 0" title="' +
+        escapeHtml((i + 1) + '. ' + (it.speaker || '') + ' · ' + durationLabel(it.duration)) + '"><div data-tl="' + i + '" class="absolute inset-y-0 left-0"></div></div>';
+    }).join('');
+  }
+  Array.prototype.forEach.call(bar.querySelectorAll('[data-tl]'), function(fill){
+    var i = parseInt(fill.getAttribute('data-tl'), 10);
+    var it = state.schedule[i];
+    var frac = 0, color = 'bg-white/40';
+    if(i === state.currentIndex && it.status !== 'done'){
+      var el = getItemElapsedSeconds(i);
+      frac = it.duration > 0 ? el / (it.duration * 60) : 1;
+      color = frac > 1 ? 'bg-red-400' : 'bg-emerald-400';
+    } else if(it.status === 'done' || i < state.currentIndex){
+      frac = 1;
+    }
+    fill.style.width = (Math.min(1, Math.max(0, frac)) * 100) + '%';
+    fill.className = 'absolute inset-y-0 left-0 ' + color;
+  });
+  document.getElementById('onair-timeline-start').textContent = state.eventStart || '';
+  document.getElementById('onair-timeline-end').textContent = 'fine ' + minutesToHHMM(computeLiveFinishMin());
 }
 
 function updateDelayPill(delay){
