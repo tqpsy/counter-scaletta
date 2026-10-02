@@ -172,7 +172,7 @@
     <div class="min-w-0 flex flex-col gap-6">
 
       <!-- Pannello ON AIR -->
-      <section class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 xl:px-7 xl:py-5 shadow-sm">
+      <section class="relative overflow-hidden bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-7 xl:px-7 xl:py-5 shadow-sm">
         <div class="flex flex-wrap items-center justify-between gap-3 mb-4 xl:mb-3">
           <div class="flex items-center gap-2.5">
             <span id="onair-dot" class="w-2.5 h-2.5 rounded-full bg-gray-400"></span>
@@ -239,18 +239,18 @@
           </form>
         </div>
 
-        <div class="text-xs text-white/50 border-t border-white/10 pt-3">
-          Prossimo: <span id="onair-next" class="text-white/80 font-medium">—</span>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs text-white/50 border-t border-white/10 pt-3">
+          <div class="min-w-0">Prossimo: <span id="onair-next" class="text-white/80 font-medium">—</span></div>
+          <div id="onair-tl-legend" class="hidden flex items-center gap-3 shrink-0 tabular-nums">
+            <span class="inline-flex items-center gap-1.5" title="Avanzamento di tutta la scaletta"><span class="w-2 h-2 rounded-full bg-accent"></span>Scaletta <span id="onair-tl-event-label" class="text-white/80"></span></span>
+            <span class="inline-flex items-center gap-1.5" title="Avanzamento dell'intervento in corso"><span id="onair-tl-item-dot" class="w-2 h-2 rounded-full bg-emerald-400"></span>Intervento <span id="onair-tl-item-label" class="text-white/80"></span></span>
+          </div>
         </div>
 
-        <!-- Due barre sottili: gialla per tutta la scaletta, verde per l'intervento in corso. -->
-        <div id="onair-timeline-wrap" class="hidden mt-3 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1.5 text-[10px] text-white/40 font-mono-time">
-          <span>Scaletta</span>
-          <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div id="onair-tl-event" class="h-full rounded-full bg-accent" style="width:0"></div></div>
-          <span id="onair-tl-event-label" class="text-right"></span>
-          <span>Intervento</span>
-          <div class="h-1.5 rounded-full bg-white/10 overflow-hidden"><div id="onair-tl-item" class="h-full rounded-full bg-emerald-400" style="width:0"></div></div>
-          <span id="onair-tl-item-label" class="text-right"></span>
+        <!-- Due linee sottili a filo del bordo inferiore: gialla per la scaletta, verde per l'intervento. -->
+        <div id="onair-timeline-wrap" class="hidden absolute inset-x-0 bottom-0">
+          <div class="h-[3px] bg-white/5"><div id="onair-tl-event" class="h-full bg-accent transition-[width] duration-300" style="width:0"></div></div>
+          <div class="h-[3px] bg-white/5"><div id="onair-tl-item" class="h-full bg-emerald-400 transition-[width] duration-300" style="width:0"></div></div>
         </div>
       </section>
 
@@ -2173,8 +2173,10 @@ function tickDashboard(){
 function updateTimeline(){
   var wrap = document.getElementById('onair-timeline-wrap');
   var total = state.schedule.length;
-  if(total === 0){ wrap.classList.add('hidden'); return; }
+  var legend = document.getElementById('onair-tl-legend');
+  if(total === 0){ wrap.classList.add('hidden'); legend.classList.add('hidden'); return; }
   wrap.classList.remove('hidden');
+  legend.classList.remove('hidden');
   var done = 0, whole = 0;
   state.schedule.forEach(function(it, i){
     var planned = it.duration * 60;
@@ -2193,11 +2195,13 @@ function updateTimeline(){
     var elapsed = getItemElapsedSeconds(state.currentIndex);
     var frac = cur.duration > 0 ? elapsed / (cur.duration * 60) : 1;
     itemBar.style.width = (Math.min(1, frac) * 100) + '%';
-    itemBar.className = 'h-full rounded-full ' + (frac > 1 ? 'bg-red-400' : 'bg-emerald-400');
+    var col = frac > 1 ? 'bg-red-400' : 'bg-emerald-400';
+    itemBar.className = 'h-full transition-[width] duration-300 ' + col;
+    document.getElementById('onair-tl-item-dot').className = 'w-2 h-2 rounded-full ' + col;
     itemLabel.textContent = Math.round(frac * 100) + '%';
   } else {
     itemBar.style.width = '0';
-    itemLabel.textContent = '';
+    itemLabel.textContent = '—';
   }
 }
 
