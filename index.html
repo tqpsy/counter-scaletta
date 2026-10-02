@@ -1441,10 +1441,12 @@ function updateItemClock(idx, which, text){
   } else if(idx === 0){
     state.eventStart = pad2(Math.floor(sec/3600)) + ':' + pad2(Math.floor((sec%3600)/60));
   } else {
+    // Gli interventi precedenti (e quello in onda) non si toccano: cambia solo la pausa
+    // prima di questo intervento, che si sposta con i successivi mantenendo la sua durata.
     var prev = state.schedule[idx - 1];
-    var prevDur = clockDiff(plannedStartSeconds(idx - 1) % 86400, sec);
-    if(prevDur <= 0){ toast('L\'inizio deve essere dopo l\'inizio di "' + prev.speaker + '".', 'error'); renderDashboard(); return; }
-    prev.duration = prevDur / 60;
+    var newGap = itemGap(it) + clockDiff(plannedStartSeconds(idx) % 86400, sec);
+    if(newGap < 0){ toast('L\'inizio non può essere prima della fine di "' + prev.speaker + '" (' + secondsToClock(plannedStartSeconds(idx) - itemGap(it)) + ').', 'error'); renderDashboard(); return; }
+    it.gapBefore = newGap;
   }
   broadcastState();
   renderDashboard();
@@ -1454,10 +1456,17 @@ function clockInputHtml(which, idx, value){
   return '<input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" maxlength="8" value="' + value + '" title="' + label + ' (es. 9:30)" aria-label="' + label + '" data-action="edit-' + which + '" data-idx="' + idx + '" class="clock-input w-[4.75rem] bg-transparent text-sm tabular-nums text-gray-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />';
 }
 // Orario di inizio previsto dalla scaletta per l'intervento idx (secondi dalla mezzanotte).
+// Ogni intervento può avere una pausa prima (gapBefore, secondi): nasce quando se ne sposta
+// in avanti l'inizio, così gli interventi precedenti non cambiano.
+function itemGap(it){ return (it && it.gapBefore > 0) ? it.gapBefore : 0; }
+function itemSpanSeconds(it){ return itemGap(it) + it.duration * 60; }
+function totalPlannedSeconds(){
+  return state.schedule.reduce(function(s, it){ return s + itemSpanSeconds(it); }, 0);
+}
 function plannedStartSeconds(idx){
   var sec = hhmmToMinutes(state.eventStart) * 60;
-  for(var i = 0; i < idx && i < state.schedule.length; i++){ sec += state.schedule[i].duration * 60; }
-  return sec;
+  for(var i = 0; i < idx && i < state.schedule.length; i++){ sec += itemSpanSeconds(state.schedule[i]); }
+  return sec + itemGap(state.schedule[idx]);
 }
 // Ritardo previsto sull'inizio dell'intervento idx (il prossimo): secondi tra
 // l'orario reale stimato (ora + residuo dell'intervento corrente) e quello da scaletta.
@@ -1788,7 +1797,7 @@ function actionApplyEndTime(){
     if(idx === state.currentIndex){
       remainingPlanned += Math.max(0, getRemainingSeconds(idx));
     } else {
-      remainingPlanned += it.duration*60;
+      remainingPlanned += itemSpanSeconds(it);
     }
   });
   var diff = remainingPlanned - availableSec;
@@ -1866,7 +1875,7 @@ var historyLast = null;
 function contentSnapshot(){
   return {
     eventTitle: state.eventTitle, eventStart: state.eventStart, eventEnd: state.eventEnd,
-    schedule: state.schedule.map(function(it){ return { id: it.id, speaker: it.speaker, duration: it.duration, type: it.type }; })
+    schedule: state.schedule.map(function(it){ return { id: it.id, speaker: it.speaker, duration: it.duration, type: it.type, gapBefore: itemGap(it) }; })
   };
 }
 function snapshotKey(snap){ return JSON.stringify(snap); }
@@ -1895,7 +1904,7 @@ function applyContent(snap, resetTimers){
   state.eventEnd = snap.eventEnd;
   state.schedule = snap.schedule.map(function(s){
     var prev = !resetTimers && old[s.id];
-    return { id: s.id, speaker: s.speaker, duration: s.duration, type: s.type,
+    return { id: s.id, speaker: s.speaker, duration: s.duration, type: s.type, gapBefore: s.gapBefore || 0,
       accumulatedSeconds: prev ? prev.accumulatedSeconds : 0, status: prev ? prev.status : 'pending' };
   });
   var newIdx = curId ? state.schedule.findIndex(function(it){ return it.id === curId; }) : -1;
@@ -2112,7 +2121,7 @@ function renderDashboard(){
 // Prima dell'inizio: se l'orario di inizio è già passato, il ritardo sposta anche la fine.
 function computeLiveFinishMin(){
   var total = state.schedule.length;
-  var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
+  var totalPlannedMin = totalPlannedSeconds() / 60;
   var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
   var nowMin = nowSecondsSinceMidnight()/60;
   if(total > 0 && !hasEventStarted()){
@@ -2122,7 +2131,7 @@ function computeLiveFinishMin(){
   if(state.currentIndex >= 0 && state.currentIndex < total){
     var restSec = Math.max(0, getRemainingSeconds(state.currentIndex));
     for(var i = state.currentIndex + 1; i < total; i++){
-      if(state.schedule[i].status !== 'done'){ restSec += state.schedule[i].duration * 60; }
+      if(state.schedule[i].status !== 'done'){ restSec += itemSpanSeconds(state.schedule[i]); }
     }
     return nowMin + restSec/60;
   }
@@ -2146,7 +2155,7 @@ function getStartDelaySeconds(){
 // (include pause e ritardi reali); prima dell'inizio = fine prevista.
 function updateFinishEstimate(){
   var total = state.schedule.length;
-  var totalPlannedMin = state.schedule.reduce(function(s,it){ return s + it.duration; }, 0);
+  var totalPlannedMin = totalPlannedSeconds() / 60;
   var plannedFinishMin = hhmmToMinutes(state.eventStart) + totalPlannedMin;
   document.getElementById('planned-finish').textContent = minutesToHHMM(plannedFinishMin);
   var liveEstimateMin = computeLiveFinishMin();
@@ -2232,6 +2241,7 @@ function renderScheduleTable(){
   }
   var cum = hhmmToMinutes(state.eventStart) * 60;
   var views = state.schedule.map(function(it, idx){
+    cum += itemGap(it);
     var v = scheduleRowView(it, idx, secondsToClock(cum));
     cum += it.duration * 60;
     v.plannedEnd = secondsToClock(cum);
@@ -2552,7 +2562,7 @@ function tickCountdown(){
   labelEl.textContent = 'Inizio previsto: ' + state.eventStart;
   var finishEl = document.getElementById('countdown-finish');
   if(state.schedule.length){
-    var plannedFinish = minutesToHHMM(hhmmToMinutes(state.eventStart) + state.schedule.reduce(function(s, it){ return s + it.duration; }, 0));
+    var plannedFinish = minutesToHHMM(hhmmToMinutes(state.eventStart) + totalPlannedSeconds() / 60);
     var liveFinish = minutesToHHMM(computeLiveFinishMin());
     finishEl.textContent = 'Fine prevista: ' + liveFinish + (liveFinish !== plannedFinish ? ' (da scaletta ' + plannedFinish + ')' : '');
   } else {
