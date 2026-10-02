@@ -45,6 +45,10 @@
         "to": "web/icon.svg"
       },
       {
+        "from": "../icons",
+        "to": "web/icons"
+      },
+      {
         "from": "../vendor",
         "to": "web/vendor"
       },

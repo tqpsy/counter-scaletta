@@ -18,7 +18,7 @@ var TYPES = {
   '.json': 'application/json', '.svg': 'image/svg+xml', '.webmanifest': 'application/manifest+json',
   '.png': 'image/png'
 };
-var PUBLIC_FILES = ['index.html', 'app.css', 'manifest.webmanifest', 'icon.svg', 'vendor/qrcode.js'];
+var PUBLIC_FILES = ['index.html', 'app.css', 'manifest.webmanifest', 'icon.svg', 'icons/icon-192.png', 'icons/icon-512.png', 'icons/icon-maskable-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png', 'vendor/qrcode.js'];
 
 // rooms[codice] = { owner: chiave della regia, state: { campo: JSON } }
 var rooms = {};
