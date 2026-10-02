@@ -1405,7 +1405,9 @@ function durationLabel(minutes){
   return s >= 3600 ? formatHMS(s) : pad2(Math.floor(s/60)) + ':' + pad2(s%60);
 }
 // Orario del giorno da secondi: HH:MM, con i secondi solo se non sono zero.
+// Orari sempre al minuto (le durate restano precise al secondo).
 function secondsToClock(totalSeconds){
+  totalSeconds = Math.round(totalSeconds / 60) * 60;
   var s = ((Math.round(totalSeconds) % 86400) + 86400) % 86400;
   var out = pad2(Math.floor(s/3600)) + ':' + pad2(Math.floor((s%3600)/60));
   return s % 60 ? out + ':' + pad2(s%60) : out;
@@ -1447,7 +1449,7 @@ function updateItemClock(idx, which, text){
     // prima di questo intervento, che si sposta con i successivi mantenendo la sua durata.
     var prev = state.schedule[idx - 1];
     var newGap = itemGap(it) + clockDiff(plannedStartSeconds(idx) % 86400, sec);
-    if(newGap < 0){ toast('L\'inizio non può essere prima della fine di "' + prev.speaker + '" (' + secondsToClock(plannedStartSeconds(idx) - itemGap(it)) + ').', 'error'); renderDashboard(); return; }
+    if(newGap < 0 && newGap < itemGap(it)){ toast('L\'inizio non può essere prima della fine di "' + prev.speaker + '" (' + secondsToClock(plannedStartSeconds(idx) - itemGap(it)) + ').', 'error'); renderDashboard(); return; }
     it.gapBefore = newGap;
   }
   broadcastState();
@@ -1460,7 +1462,7 @@ function clockInputHtml(which, idx, value){
 // Orario di inizio previsto dalla scaletta per l'intervento idx (secondi dalla mezzanotte).
 // Ogni intervento può avere una pausa prima (gapBefore, secondi): nasce quando se ne sposta
 // in avanti l'inizio, così gli interventi precedenti non cambiano.
-function itemGap(it){ return (it && it.gapBefore > 0) ? it.gapBefore : 0; }
+function itemGap(it){ return (it && typeof it.gapBefore === 'number') ? it.gapBefore : 0; }
 function itemSpanSeconds(it){ return itemGap(it) + it.duration * 60; }
 function totalPlannedSeconds(){
   return state.schedule.reduce(function(s, it){ return s + itemSpanSeconds(it); }, 0);
@@ -1533,6 +1535,20 @@ function getRemainingSeconds(idx){
   // I blocchi fissi non vanno mai in negativo: a zero si passa al successivo.
   return item.type === 'fixed' ? Math.max(0, rem) : rem;
 }
+// Ritardo "di adesso", lo stesso di "Prossimo": quando finirà l'intervento in corso
+// rispetto a quando dovrebbe finire da scaletta. Prima della partenza è il ritardo sull'inizio.
+function getLiveDelaySeconds(){
+  var total = state.schedule.length;
+  if(state.currentIndex >= 0 && state.currentIndex < total){
+    var plannedEnd = plannedStartSeconds(state.currentIndex) + state.schedule[state.currentIndex].duration * 60;
+    var expectedEnd = nowSecondsSinceMidnight() + Math.max(0, getRemainingSeconds(state.currentIndex));
+    var d = expectedEnd - plannedEnd;
+    if(d < -43200){ d += 86400; } else if(d > 43200){ d -= 86400; }
+    return d;
+  }
+  if(!hasEventStarted()) return getStartDelaySeconds();
+  return getTotalDelaySeconds();
+}
 function getTotalDelaySeconds(){
   var total = 0;
   state.schedule.forEach(function(item){
@@ -1560,12 +1576,29 @@ function actionPlay(){
   var item = state.schedule[state.currentIndex];
   if(!item) return;
   var firstStart = !hasEventStarted();
+  var jumped = !firstStart && !(item.accumulatedSeconds > 0) && state.schedule.some(function(it, i){ return isSkipped(it, i); });
   item.status = 'active';
   state.running = true;
   state.activeStartEpoch = Date.now();
-  if(firstStart){ alignScheduleToRealStart(state.currentIndex); }
+  // Prima partenza dal primo intervento: si sposta tutta la scaletta. Partenza da un intervento
+  // più avanti: si sposta solo lui con i successivi, i precedenti restano com'erano.
+  if(firstStart && state.currentIndex === 0){ alignScheduleToRealStart(0); }
+  else if(firstStart || jumped){ alignItemToRealStart(state.currentIndex); }
   broadcastState();
   renderDashboard();
+}
+// Partenza di un intervento più avanti, saltando quelli prima: si sposta solo lui (con i
+// successivi), cambiando la pausa che lo precede; gli interventi già fatti restano com'erano.
+function alignItemToRealStart(idx){
+  var it = state.schedule[idx];
+  var planned = plannedStartSeconds(idx);
+  var diff = nowSecondsSinceMidnight() - planned;
+  if(diff < -43200){ diff += 86400; } else if(diff > 43200){ diff -= 86400; }
+  diff = Math.floor(diff / 60) * 60;
+  if(diff === 0) return;
+  var oldStart = secondsToClock(planned);
+  it.gapBefore = itemGap(it) + diff;
+  toast('"' + it.speaker + '" parte alle ' + secondsToClock(plannedStartSeconds(idx)) + ' invece delle ' + oldStart + ': orari successivi aggiornati. Annulla per tornare al piano.', 'info');
 }
 // Alla prima partenza la scaletta si allinea all'orario reale: se l'evento parte in ritardo
 // (o in anticipo) inizio e fine di tutte le righe si spostano, così orari, "Prossimo" e stime
@@ -1793,6 +1826,9 @@ function confirmRecovery(){
 function actionAutoBalance(){
   var delay = getTotalDelaySeconds();
   var overrun = Math.max(0, delay - (state.recoveredSeconds || 0));
+  // Ritardo dovuto all'orario (es. partenza in ritardo) senza sforamenti: si recupera quello.
+  var live = getLiveDelaySeconds();
+  if(overrun < 1 && live >= 60){ delay = overrun = live; }
   if(overrun < 1){ toast(delay >= 1 ? 'Lo sforamento attuale è già stato recuperato.' : 'Nessuno sforamento da recuperare al momento.', 'info'); return; }
   var plan = planRecovery(overrun);
   if(plan.applied === 0){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
@@ -2120,8 +2156,7 @@ function renderDashboard(){
   document.getElementById('onair-timer').title = cur ? 'Clicca per modificare il tempo rimanente' : '';
   if(!cur){ endTimerEdit(false); }
 
-  var delay = getTotalDelaySeconds();
-  updateDelayPill(delay);
+  updateDelayPill(getLiveDelaySeconds());
 
   var playBtn = document.getElementById('play-btn');
   var pauseBtn = document.getElementById('pause-btn');
@@ -2198,16 +2233,21 @@ function updateFinishEstimate(){
 }
 
 // Stato visivo di una riga, condiviso tra ricostruzione completa e aggiornamento in place.
+// Saltato: un intervento prima di quello attuale che non è mai partito.
+function isSkipped(it, idx){
+  return idx < state.currentIndex && it.status !== 'done' && !(it.accumulatedSeconds > 0);
+}
 function scheduleRowView(it, idx, plannedStart){
   var isCurrent = idx === state.currentIndex;
   var elapsed = getItemElapsedSeconds(idx);
+  var skipped = isSkipped(it, idx);
   return {
     plannedStart: plannedStart,
-    statusLabel: it.status === 'done' ? 'Concluso' : (isCurrent ? (state.running ? 'In onda' : 'In pausa') : 'In attesa'),
-    statusClass: it.status === 'done' ? 'bg-gray-100 text-gray-500' : (isCurrent ? (state.running ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700') : 'bg-gray-50 text-gray-400'),
+    statusLabel: skipped ? 'Saltato' : (it.status === 'done' ? 'Concluso' : (isCurrent ? (state.running ? 'In onda' : 'In pausa') : 'In attesa')),
+    statusClass: skipped ? 'bg-gray-100 text-gray-400' : (it.status === 'done' ? 'bg-gray-100 text-gray-500' : (isCurrent ? (state.running ? 'bg-emerald-50 text-emerald-700' : 'bg-amber-50 text-amber-700') : 'bg-gray-50 text-gray-400')),
     effTime: (it.status === 'done' || isCurrent) ? formatSecondsSigned(elapsed) : '—',
     effClass: elapsed > it.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500',
-    rowBg: isCurrent ? 'bg-amber-50/60' : (it.status === 'done' ? 'bg-gray-50/60' : 'bg-white'),
+    rowBg: isCurrent ? 'bg-amber-50/60' : (it.status === 'done' || skipped ? 'bg-gray-50/60' : 'bg-white'),
     typeBtnClass: it.type === 'flex' ? 'bg-sky-50 text-sky-700 hover:bg-sky-100' : 'bg-violet-50 text-violet-700 hover:bg-violet-100',
     typeLabel: it.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Fisso',
     // Sull'intervento attuale il pulsante è Pausa/Avvia; sugli altri lo prepara come attuale, in pausa.
@@ -2344,7 +2384,7 @@ function tickDashboard(){
       effCell.className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + (elapsed > cur.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500');
     }
   }
-  updateDelayPill(getTotalDelaySeconds());
+  updateDelayPill(getLiveDelaySeconds());
   updateFinishEstimate();
   updateTimeline();
 }
@@ -2363,6 +2403,7 @@ function updateTimeline(){
   state.schedule.forEach(function(it, i){
     var planned = it.duration * 60;
     if(it.status === 'done'){ done += it.accumulatedSeconds; whole += it.accumulatedSeconds; }
+    else if(isSkipped(it, i)){ done += planned; whole += planned; }
     else if(i === state.currentIndex){ var el = getItemElapsedSeconds(i); done += el; whole += Math.max(el, planned); }
     else { whole += planned; }
   });
@@ -2392,7 +2433,7 @@ function updateDelayPill(delay){
   if(!delayEl) return;
   var base = 'inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium ';
   var recovered = state.recoveredSeconds || 0;
-  if(Math.abs(delay) < 1){
+  if(Math.abs(delay) < 60){
     delayEl.textContent = 'In orario';
     delayEl.className = base + 'bg-white/10 text-white/70';
   } else if(delay > 0){
