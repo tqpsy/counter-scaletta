@@ -92,7 +92,7 @@
     #schedule-table thead { display: none; }
     #schedule-tbody tr[data-id] {
       display: grid; grid-template-columns: 6.25rem 1fr auto; align-items: center; gap: 6px 10px;
-      grid-template-areas: "num name name" "type dur start" "status eff act";
+      grid-template-areas: "num name name" "type dur dur" "start end end" "status eff act";
       padding: 12px 14px;
     }
     #schedule-tbody tr[data-id] > td { display: block; padding: 0; min-width: 0; }
@@ -100,7 +100,9 @@
     #schedule-tbody td.c-type { grid-area: type; }
     #schedule-tbody td.c-name { grid-area: name; }
     #schedule-tbody td.c-dur { grid-area: dur; }
-    #schedule-tbody td.c-start { grid-area: start; text-align: right; }
+    #schedule-tbody td.c-start { grid-area: start; }
+    #schedule-tbody td.c-end { grid-area: end; }
+    #schedule-tbody input.clock-input { width: 5.5rem; font-size: 16px; padding: 6px 4px; background: #f3f4f6; }
     #schedule-tbody td.c-status { grid-area: status; }
     #schedule-tbody td.c-eff { grid-area: eff; }
     #schedule-tbody td.c-act { grid-area: act; }
@@ -276,7 +278,8 @@
                 <th class="px-3 py-2 font-medium">Tipo</th>
                 <th class="px-3 py-2 font-medium">Relatore / Titolo</th>
                 <th class="px-3 py-2 font-medium">Durata <span class="normal-case tracking-normal">(h:mm:ss)</span></th>
-                <th class="px-3 py-2 font-medium">Orario previsto</th>
+                <th class="px-3 py-2 font-medium">Inizio</th>
+                <th class="px-3 py-2 font-medium">Fine</th>
                 <th class="px-3 py-2 font-medium">Stato</th>
                 <th class="px-3 py-2 font-medium">Tempo effettivo</th>
                 <th class="px-3 py-2 font-medium">Azioni</th>
@@ -1366,6 +1369,51 @@ function secondsToClock(totalSeconds){
   var out = pad2(Math.floor(s/3600)) + ':' + pad2(Math.floor((s%3600)/60));
   return s % 60 ? out + ':' + pad2(s%60) : out;
 }
+// Orario scritto a mano in secondi dalla mezzanotte: "9:30", "9.30", "930", "0930", "9" o "9:30:15".
+function parseClock(text){
+  var t = String(text || '').trim();
+  var parts;
+  if(/^\d{3,4}$/.test(t)){ parts = [t.slice(0, -2), t.slice(-2)]; }
+  else { parts = t.split(/[.:,\s]+/); }
+  if(parts.length === 0 || parts.length > 3 || parts.some(function(p){ return !/^\d{1,2}$/.test(p); })) return null;
+  var n = parts.map(function(p){ return parseInt(p, 10); });
+  if(n[0] > 23 || (n[1] || 0) > 59 || (n[2] || 0) > 59) return null;
+  return n[0]*3600 + (n[1] || 0)*60 + (n[2] || 0);
+}
+// Secondi tra due orari del giorno, attraverso la mezzanotte se serve (es. 23:50 -> 00:10 = 20 min).
+// Oltre 12 ore è quasi sicuramente un orario precedente scritto per sbaglio: risultato negativo.
+function clockDiff(fromSec, toSec){
+  var d = ((toSec - fromSec) % 86400 + 86400) % 86400;
+  return d > 43200 ? d - 86400 : d;
+}
+// Modifica di inizio o fine di una riga. Le righe restano attaccate una all'altra:
+// - fine: cambia la durata dell'intervento, i successivi slittano;
+// - inizio: cambia la durata dell'intervento precedente (o l'inizio evento per il primo),
+//   la durata di questo resta uguale e i successivi slittano.
+function updateItemClock(idx, which, text){
+  var it = state.schedule[idx];
+  if(!it) return;
+  var sec = parseClock(text);
+  if(sec === null){ toast('Orario non valido. Scrivi per esempio 9:30 o 14.05.', 'error'); renderDashboard(); return; }
+  if(which === 'end'){
+    var dur = clockDiff(plannedStartSeconds(idx) % 86400, sec);
+    if(dur <= 0){ toast('La fine deve essere dopo l\'inizio dell\'intervento.', 'error'); renderDashboard(); return; }
+    it.duration = dur / 60;
+  } else if(idx === 0){
+    state.eventStart = pad2(Math.floor(sec/3600)) + ':' + pad2(Math.floor((sec%3600)/60));
+  } else {
+    var prev = state.schedule[idx - 1];
+    var prevDur = clockDiff(plannedStartSeconds(idx - 1) % 86400, sec);
+    if(prevDur <= 0){ toast('L\'inizio deve essere dopo l\'inizio di "' + prev.speaker + '".', 'error'); renderDashboard(); return; }
+    prev.duration = prevDur / 60;
+  }
+  broadcastState();
+  renderDashboard();
+}
+function clockInputHtml(which, idx, value){
+  var label = which === 'start' ? 'Orario di inizio' : 'Orario di fine';
+  return '<input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" maxlength="8" value="' + value + '" title="' + label + ' (es. 9:30)" aria-label="' + label + '" data-action="edit-' + which + '" data-idx="' + idx + '" class="clock-input w-[4.75rem] bg-transparent text-sm tabular-nums text-gray-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />';
+}
 // Orario di inizio previsto dalla scaletta per l'intervento idx (secondi dalla mezzanotte).
 function plannedStartSeconds(idx){
   var sec = hhmmToMinutes(state.eventStart) * 60;
@@ -1965,13 +2013,16 @@ function patchScheduleRow(tr, it, idx, v){
     var input = cells[3].querySelector('[data-action="edit-dur-' + k + '"]');
     if(input && document.activeElement !== input && input.value !== durParts[i]){ input.value = durParts[i]; }
   });
-  cells[4].textContent = v.plannedStart;
-  var statusSpan = cells[5].firstElementChild;
+  [[cells[4], v.plannedStart], [cells[5], v.plannedEnd]].forEach(function(pair){
+    var input = pair[0].firstElementChild;
+    if(input && document.activeElement !== input && input.value !== pair[1]){ input.value = pair[1]; }
+  });
+  var statusSpan = cells[6].firstElementChild;
   statusSpan.textContent = v.statusLabel;
   statusSpan.className = 'inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + v.statusClass;
-  cells[6].textContent = v.effTime;
-  cells[6].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
-  var goBtn = cells[7].querySelector('[data-go]');
+  cells[7].textContent = v.effTime;
+  cells[7].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
+  var goBtn = cells[8].querySelector('[data-go]');
   if(goBtn && goBtn.title !== v.goTitle){
     goBtn.dataset.action = v.goAction;
     goBtn.title = v.goTitle;
@@ -1984,13 +2035,14 @@ function patchScheduleRow(tr, it, idx, v){
 function renderScheduleTable(){
   var tbody = document.getElementById('schedule-tbody');
   if(state.schedule.length === 0){
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-sm text-gray-400 py-10 px-4">Nessun intervento in scaletta. Importa una scaletta con l\'AI oppure aggiungi una riga manualmente.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-sm text-gray-400 py-10 px-4">Nessun intervento in scaletta. Importa una scaletta con l\'AI oppure aggiungi una riga manualmente.</td></tr>';
     return;
   }
   var cum = hhmmToMinutes(state.eventStart) * 60;
   var views = state.schedule.map(function(it, idx){
     var v = scheduleRowView(it, idx, secondsToClock(cum));
     cum += it.duration * 60;
+    v.plannedEnd = secondsToClock(cum);
     return v;
   });
 
@@ -2026,7 +2078,8 @@ function renderScheduleTable(){
         '<td class="c-dur px-3 py-2.5 whitespace-nowrap" data-label="Durata">' +
           durationFieldsHtml(it, idx) +
         '</td>' +
-        '<td class="c-start px-3 py-2.5 text-sm text-gray-500 tabular-nums" data-label="Inizio">' + plannedStart + '</td>' +
+        '<td class="c-start px-2 py-2.5 whitespace-nowrap" data-label="Inizio">' + clockInputHtml('start', idx, plannedStart) + '</td>' +
+        '<td class="c-end px-2 py-2.5 whitespace-nowrap" data-label="Fine">' + clockInputHtml('end', idx, v.plannedEnd) + '</td>' +
         '<td class="c-status px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + statusClass + '">' + statusLabel + '</span></td>' +
         '<td class="c-eff px-3 py-2.5 text-sm tabular-nums ' + effClass + '" data-eff="' + idx + '" data-label="Effettivo">' + effTime + '</td>' +
         '<td class="c-act px-3 py-2.5">' +
@@ -3428,6 +3481,8 @@ function wireEvents(){
     var idx = parseInt(el.dataset.idx, 10);
     var action = el.dataset.action;
     if(action === 'edit-speaker'){ updateItemField(idx, 'speaker', el.value.trim()); }
+    else if(action === 'edit-start'){ updateItemClock(idx, 'start', el.value); }
+    else if(action === 'edit-end'){ updateItemClock(idx, 'end', el.value); }
     else if(action.indexOf('edit-dur-') === 0){
       // Campi vuoti = 0; minuti e secondi oltre 59 vengono riportati (90 min = 1:30:00).
       var row = el.closest('td');
@@ -3439,7 +3494,7 @@ function wireEvents(){
   // salto automatico al campo successivo e Invio per passare avanti o confermare.
   document.getElementById('schedule-tbody').addEventListener('focusin', function(e){
     var el = e.target;
-    if(el.classList && el.classList.contains('dur-part')){ setTimeout(function(){ try{ el.select(); }catch(err){} }, 0); }
+    if(el.classList && (el.classList.contains('dur-part') || el.classList.contains('clock-input'))){ setTimeout(function(){ try{ el.select(); }catch(err){} }, 0); }
   });
   document.getElementById('schedule-tbody').addEventListener('input', function(e){
     var el = e.target;
@@ -3459,6 +3514,7 @@ function wireEvents(){
       if(hours){ hours.focus(); }
       return;
     }
+    if(el.classList.contains('clock-input')){ e.preventDefault(); el.blur(); return; }
     if(!el.classList.contains('dur-part')) return;
     e.preventDefault();
     if(el.dataset.action.slice(-1) === 's'){ el.blur(); } else { focusNextDurPart(el); }
