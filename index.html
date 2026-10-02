@@ -60,6 +60,9 @@
   .disp-status { font-size: calc(var(--s) * clamp(0.85rem, min(2vw, 3.2vh), 2.25rem)); font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.65); }
   #countdown-status { color: #E8A33D; }
   #countdown-status.disp-late { color: #ef4444; }
+  .next-late, .next-early { white-space: nowrap; }
+  .next-late { color: #f87171; font-weight: 600; }
+  .next-early { color: #34d399; font-weight: 600; }
   #countdown-status.disp-started { color: #34d399; }
   .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
   .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
@@ -1340,7 +1343,7 @@ function durationFieldsHtml(it, idx){
 // "15 min" per i minuti interi, altrimenti "2:30" o "1:05:30".
 function durationLabel(minutes){
   var s = Math.max(0, Math.round(minutes * 60));
-  if(s % 60 === 0) return (s / 60) + ' min';
+  if(s % 60 === 0) return (s / 60) + '\u00a0min';
   return s >= 3600 ? formatHMS(s) : pad2(Math.floor(s/60)) + ':' + pad2(s%60);
 }
 // Orario del giorno da secondi: HH:MM, con i secondi solo se non sono zero.
@@ -1354,6 +1357,35 @@ function plannedStartSeconds(idx){
   var sec = hhmmToMinutes(state.eventStart) * 60;
   for(var i = 0; i < idx && i < state.schedule.length; i++){ sec += state.schedule[i].duration * 60; }
   return sec;
+}
+// Ritardo previsto sull'inizio dell'intervento idx (il prossimo): secondi tra
+// l'orario reale stimato (ora + residuo dell'intervento corrente) e quello da scaletta.
+function nextStartDelay(idx){
+  var planned = plannedStartSeconds(idx);
+  var expected;
+  if(state.currentIndex >= 0 && state.currentIndex < state.schedule.length && idx === state.currentIndex + 1){
+    expected = nowSecondsSinceMidnight() + Math.max(0, getRemainingSeconds(state.currentIndex));
+  } else if(idx === 0 && !hasEventStarted()){
+    expected = planned + getStartDelaySeconds();
+  } else {
+    return { delay: 0, expected: planned };
+  }
+  var delay = expected - planned;
+  if(delay < -43200){ delay += 86400; } else if(delay > 43200){ delay -= 86400; }
+  return { delay: delay, expected: expected };
+}
+// Riga "prossimo intervento" con, se c'è almeno un minuto di scarto, il ritardo
+// (rosso) o l'anticipo (verde) previsto e l'orario reale stimato.
+function setNextLine(el, text, idx){
+  el.textContent = text;
+  if(idx < 0) return;
+  var info = nextStartDelay(idx);
+  var min = Math.round(info.delay / 60);
+  if(min === 0) return;
+  var span = document.createElement('span');
+  span.className = min > 0 ? 'next-late' : 'next-early';
+  span.textContent = ' \u00b7 ' + (min > 0 ? 'ritardo +' + min : 'anticipo ' + (-min)) + '\u00a0min (ore\u00a0' + secondsToClock(Math.round(info.expected / 60) * 60) + ')';
+  el.appendChild(span);
 }
 function uid(){ return 'it_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
 // Ora corrente allineata all'orologio del PC di regia (sugli schermi remoti
@@ -1743,7 +1775,7 @@ function renderDashboard(){
     timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
-    nextEl.textContent = total > 0 ? state.schedule[0].speaker : '—';
+    setNextLine(nextEl, total > 0 ? state.schedule[0].speaker : '—', total > 0 ? 0 : -1);
     plannedEl.textContent = '';
   } else {
     nameEl.textContent = cur.speaker;
@@ -1758,7 +1790,7 @@ function renderDashboard(){
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
     typeBadgeEl.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ' + (cur.type === 'flex' ? 'bg-sky-400/15 text-sky-300' : 'bg-violet-400/15 text-violet-300');
     var nextItem = state.schedule[state.currentIndex+1];
-    nextEl.textContent = nextItem ? (nextItem.speaker + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento';
+    setNextLine(nextEl, nextItem ? (nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento', nextItem ? state.currentIndex+1 : -1);
     plannedEl.textContent = 'Durata pianificata: ' + formatSecondsSigned(cur.duration*60);
   }
 
@@ -2119,7 +2151,7 @@ function tickStage(){
     statusEl.className = statusClass;
     setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
-    nextEl.textContent = total > 0 ? ('Si parte con: ' + state.schedule[0].speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '';
+    setNextLine(nextEl, total > 0 ? ('Si parte con: ' + state.schedule[0].speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '', total > 0 ? 0 : -1);
     barEl.style.width = '0';
     return;
   }
@@ -2137,7 +2169,7 @@ function tickStage(){
   barEl.style.width = (dur > 0 ? Math.min(100, Math.max(0, (1 - rem / dur) * 100)) : 100) + '%';
   barEl.style.background = barColor;
   var nextItem = state.schedule[state.currentIndex+1];
-  nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta';
+  setNextLine(nextEl, nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta', nextItem ? state.currentIndex+1 : -1);
 }
 
 /* ---------------------------------------------------------------- */
