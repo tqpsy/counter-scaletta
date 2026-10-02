@@ -2,6 +2,10 @@
 'use strict';
 var electron = require('electron');
 electron.contextBridge.exposeInMainWorld('REGIA_DESKTOP', true);
+electron.contextBridge.exposeInMainWorld('regiaDesktop', {
+  version: electron.ipcRenderer.sendSync('regia-app-version'),
+  checkUpdates: function(){ return electron.ipcRenderer.invoke('regia-update-check'); }
+});
 
 // Su Windows, dopo i confirm() e alert() nativi di Electron i campi di testo
 // smettono di ricevere la tastiera. Le finestre di conferma le apre quindi il

@@ -44,6 +44,15 @@ jobs:
       - name: Installa Electron
         working-directory: desktop
         run: npm ci
+      # Ogni pubblicazione su main è una versione nuova (1.0.<numero del run>):
+      # così il programma installato la riconosce e si aggiorna da solo.
+      - name: Numero di versione
+        if: github.event_name != 'pull_request'
+        working-directory: desktop
+        shell: bash
+        run: |
+          base=$(node -p "require('./package.json').version.split('.').slice(0,2).join('.')")
+          npm version "$base.${{ github.run_number }}" --no-git-tag-version --allow-same-version
       - name: Costruisci installer e versione portatile
         working-directory: desktop
         run: npm run dist
@@ -75,4 +84,6 @@ jobs:
             Aggiornato all'ultima versione di main (${{ github.sha }}).
           files: |
             desktop/dist/Regia-Tempi-Setup.exe
+            desktop/dist/Regia-Tempi-Setup.exe.blockmap
             desktop/dist/Regia-Tempi-Portable.exe
+            desktop/dist/latest.yml

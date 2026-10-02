@@ -1,7 +1,7 @@
 {
   "name": "regia-tempi-desktop",
   "productName": "Regia Tempi",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "Regia Tempi per PC, con il server per gli schermi in rete incluso",
   "author": "tqpsy",
   "repository": "github:tqpsy/counter-scaletta",
@@ -24,6 +24,7 @@
     "files": [
       "main.js",
       "preload.js",
+      "updater.js",
       "build/icon.png"
     ],
     "extraResources": [
@@ -67,6 +68,15 @@
     },
     "portable": {
       "artifactName": "Regia-Tempi-Portable.${ext}"
-    }
+    },
+    "publish": [
+      {
+        "provider": "generic",
+        "url": "https://github.com/tqpsy/counter-scaletta/releases/latest/download"
+      }
+    ]
+  },
+  "dependencies": {
+    "electron-updater": "^6.8.9"
   }
 }

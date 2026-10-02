@@ -511,8 +511,15 @@
 
       <div id="settings-desktop-section" class="border-t border-gray-100 pt-4">
         <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Programma per Windows</h3>
-        <p class="text-xs text-gray-500 mb-2">Regia Tempi come programma da installare, con gli schermi in rete locale già inclusi: funziona senza internet e apre lo Stage da solo sul secondo schermo.</p>
-        <a id="desktop-download-link" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">Scarica per Windows</a>
+        <div id="desktop-download-row">
+          <p class="text-xs text-gray-500 mb-2">Regia Tempi come programma da installare, con gli schermi in rete locale già inclusi: funziona senza internet e apre lo Stage da solo sul secondo schermo.</p>
+          <a id="desktop-download-link" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">Scarica per Windows</a>
+        </div>
+        <div id="desktop-update-row" class="hidden">
+          <p class="text-xs text-gray-500 mb-2"><span id="desktop-version"></span> Gli aggiornamenti si scaricano da soli quando c'è internet.</p>
+          <button id="desktop-update-btn" type="button" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors disabled:opacity-40">Cerca aggiornamenti</button>
+          <p id="desktop-update-status" class="text-xs text-gray-500 mt-1.5"></p>
+        </div>
       </div>
 
       <div class="border-t border-gray-100 pt-4">
@@ -3421,8 +3428,32 @@ document.getElementById('install-app-btn').addEventListener('click', function(){
 
 // Nell'app per PC il server locale è già attivo e non serve scaricarla.
 document.getElementById('desktop-download-link').href = DESKTOP_DOWNLOAD_URL;
+var DESKTOP_UPDATE_TEXT = {
+  checking: 'Controllo in corso…',
+  latest: 'Hai già l\'ultima versione.',
+  downloading: 'Sto scaricando la versione {v}: quando è pronta ti chiedo di riavviare.',
+  ready: 'La versione {v} è pronta: riavvia il programma per installarla.',
+  available: 'È disponibile la versione {v}.',
+  error: 'Non riesco a controllare gli aggiornamenti: serve internet.',
+  off: 'Gli aggiornamenti funzionano solo nel programma installato.'
+};
 if(isDesktopApp){
-  document.getElementById('settings-desktop-section').classList.add('hidden');
+  document.getElementById('desktop-download-row').classList.add('hidden');
+  if(window.regiaDesktop){
+    document.getElementById('desktop-update-row').classList.remove('hidden');
+    document.getElementById('desktop-version').textContent = 'Versione ' + window.regiaDesktop.version + '.';
+    document.getElementById('desktop-update-btn').addEventListener('click', function(){
+      var btn = this;
+      var out = document.getElementById('desktop-update-status');
+      btn.disabled = true;
+      out.textContent = 'Controllo in corso…';
+      window.regiaDesktop.checkUpdates().then(function(st){
+        out.textContent = (DESKTOP_UPDATE_TEXT[st && st.state] || DESKTOP_UPDATE_TEXT.error).replace('{v}', (st && st.version) || '');
+      }, function(){
+        out.textContent = DESKTOP_UPDATE_TEXT.error;
+      }).then(function(){ btn.disabled = false; });
+    });
+  }
   document.getElementById('share-local-desc').textContent = 'Senza internet: il server è già attivo in questo programma. Tutti gli schermi devono essere sulla stessa rete Wi-Fi o sullo stesso router.';
 }
 

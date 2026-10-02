@@ -14,6 +14,7 @@ var session = electron.session;
 var shell = electron.shell;
 var path = require('path');
 var fork = require('child_process').fork;
+var updater = require('./updater');
 
 var PORT = 8765;
 var BASE = 'http://localhost:' + PORT + '/';
@@ -105,6 +106,10 @@ ipcMain.on('regia-dialog', function(e, kind, message){
   }, 0);
 });
 
+// Versione e aggiornamenti, per la sezione nelle impostazioni (preload.js).
+ipcMain.on('regia-app-version', function(e){ e.returnValue = app.getVersion(); });
+ipcMain.handle('regia-update-check', function(){ return updater.checkNow(); });
+
 // Finestre aperte dalla pagina: Stage e Countdown restano nell'app, i link
 // esterni (es. GitHub, Firebase) si aprono nel browser.
 app.on('web-contents-created', function(e, wc){
@@ -139,6 +144,7 @@ if(!app.requestSingleInstanceLock()){
     setupPermissions();
     return startServer();
   }).then(function(ok){
+    updater.setup(function(){ return mainWindow; });
     if(ok) return createMainWindow(BASE);
     // Senza server la dashboard funziona lo stesso (anche via internet),
     // manca solo la rete locale.
