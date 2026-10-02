@@ -92,7 +92,7 @@
     #schedule-table thead { display: none; }
     #schedule-tbody tr[data-id] {
       display: grid; grid-template-columns: 6.25rem 1fr auto; align-items: center; gap: 6px 10px;
-      grid-template-areas: "num name name" "type dur start" "status eff act";
+      grid-template-areas: "num name name" "type dur dur" "start end end" "status eff act";
       padding: 12px 14px;
     }
     #schedule-tbody tr[data-id] > td { display: block; padding: 0; min-width: 0; }
@@ -100,7 +100,9 @@
     #schedule-tbody td.c-type { grid-area: type; }
     #schedule-tbody td.c-name { grid-area: name; }
     #schedule-tbody td.c-dur { grid-area: dur; }
-    #schedule-tbody td.c-start { grid-area: start; text-align: right; }
+    #schedule-tbody td.c-start { grid-area: start; }
+    #schedule-tbody td.c-end { grid-area: end; }
+    #schedule-tbody input.clock-input { width: 5.5rem; font-size: 16px; padding: 6px 4px; background: #f3f4f6; }
     #schedule-tbody td.c-status { grid-area: status; }
     #schedule-tbody td.c-eff { grid-area: eff; }
     #schedule-tbody td.c-act { grid-area: act; }
@@ -270,9 +272,18 @@
               </span>
             </div>
           </div>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center justify-end gap-1 sm:gap-2">
+            <button id="undo-btn" type="button" disabled title="Annulla l'ultima modifica (Ctrl+Z)" aria-label="Annulla" class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-ink hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed px-2 py-2 rounded-lg transition-colors">
+              <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg> Annulla
+            </button>
+            <button id="redo-btn" type="button" disabled title="Ripeti la modifica annullata (Ctrl+Y)" aria-label="Ripeti" class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-ink hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed px-2 py-2 rounded-lg transition-colors">
+              <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 14l5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg> Ripeti
+            </button>
+            <button id="restore-original-btn" type="button" disabled title="Torna alla scaletta come era appena importata dal file, con i timer azzerati" class="inline-flex items-center gap-1 text-xs font-medium text-gray-500 hover:text-ink hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent disabled:cursor-not-allowed px-2 py-2 rounded-lg transition-colors">
+              <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v5h5"/></svg> Ripristina iniziale
+            </button>
             <button id="clear-schedule-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 px-2 py-2 transition-colors">Svuota scaletta</button>
-            <button id="add-row-btn" type="button" class="inline-flex items-center gap-1.5 bg-ink hover:bg-ink/90 text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors">
+            <button id="add-row-btn" type="button" class="inline-flex items-center gap-1.5 bg-panel hover:bg-[#2C3E66] text-white text-xs font-semibold px-3 py-2 rounded-lg transition-colors">
               <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
               Aggiungi intervento
             </button>
@@ -286,7 +297,8 @@
                 <th class="px-3 py-2 font-medium">Tipo</th>
                 <th class="px-3 py-2 font-medium">Relatore / Titolo</th>
                 <th class="px-3 py-2 font-medium">Durata <span class="normal-case tracking-normal">(h:mm:ss)</span></th>
-                <th class="px-3 py-2 font-medium">Orario previsto</th>
+                <th class="px-3 py-2 font-medium">Inizio</th>
+                <th class="px-3 py-2 font-medium">Fine</th>
                 <th class="px-3 py-2 font-medium">Stato</th>
                 <th class="px-3 py-2 font-medium">Tempo effettivo</th>
                 <th class="px-3 py-2 font-medium">Azioni</th>
@@ -706,7 +718,7 @@ var isEmbed = params.get('embed') === '1';
 function renderActive(){
   if(isStage){ renderStage(); }
   else if(isCountdown){ renderCountdown(); }
-  else { renderDashboard(); }
+  else { historyRebase(); renderDashboard(); }
 }
 
 /* ---------------------------------------------------------------- */
@@ -885,6 +897,7 @@ rememberSynced(state);
 try{ savedLogo = localStorage.getItem(LS_LOGO_KEY) || null; }catch(e){ savedLogo = null; }
 
 function broadcastState(){
+  historyRecord();
   var patch = {}, changed = false;
   for(var k in state){
     if(!Object.prototype.hasOwnProperty.call(state, k)) continue;
@@ -1395,6 +1408,51 @@ function secondsToClock(totalSeconds){
   var out = pad2(Math.floor(s/3600)) + ':' + pad2(Math.floor((s%3600)/60));
   return s % 60 ? out + ':' + pad2(s%60) : out;
 }
+// Orario scritto a mano in secondi dalla mezzanotte: "9:30", "9.30", "930", "0930", "9" o "9:30:15".
+function parseClock(text){
+  var t = String(text || '').trim();
+  var parts;
+  if(/^\d{3,4}$/.test(t)){ parts = [t.slice(0, -2), t.slice(-2)]; }
+  else { parts = t.split(/[.:,\s]+/); }
+  if(parts.length === 0 || parts.length > 3 || parts.some(function(p){ return !/^\d{1,2}$/.test(p); })) return null;
+  var n = parts.map(function(p){ return parseInt(p, 10); });
+  if(n[0] > 23 || (n[1] || 0) > 59 || (n[2] || 0) > 59) return null;
+  return n[0]*3600 + (n[1] || 0)*60 + (n[2] || 0);
+}
+// Secondi tra due orari del giorno, attraverso la mezzanotte se serve (es. 23:50 -> 00:10 = 20 min).
+// Oltre 12 ore è quasi sicuramente un orario precedente scritto per sbaglio: risultato negativo.
+function clockDiff(fromSec, toSec){
+  var d = ((toSec - fromSec) % 86400 + 86400) % 86400;
+  return d > 43200 ? d - 86400 : d;
+}
+// Modifica di inizio o fine di una riga. Le righe restano attaccate una all'altra:
+// - fine: cambia la durata dell'intervento, i successivi slittano;
+// - inizio: cambia la durata dell'intervento precedente (o l'inizio evento per il primo),
+//   la durata di questo resta uguale e i successivi slittano.
+function updateItemClock(idx, which, text){
+  var it = state.schedule[idx];
+  if(!it) return;
+  var sec = parseClock(text);
+  if(sec === null){ toast('Orario non valido. Scrivi per esempio 9:30 o 14.05.', 'error'); renderDashboard(); return; }
+  if(which === 'end'){
+    var dur = clockDiff(plannedStartSeconds(idx) % 86400, sec);
+    if(dur <= 0){ toast('La fine deve essere dopo l\'inizio dell\'intervento.', 'error'); renderDashboard(); return; }
+    it.duration = dur / 60;
+  } else if(idx === 0){
+    state.eventStart = pad2(Math.floor(sec/3600)) + ':' + pad2(Math.floor((sec%3600)/60));
+  } else {
+    var prev = state.schedule[idx - 1];
+    var prevDur = clockDiff(plannedStartSeconds(idx - 1) % 86400, sec);
+    if(prevDur <= 0){ toast('L\'inizio deve essere dopo l\'inizio di "' + prev.speaker + '".', 'error'); renderDashboard(); return; }
+    prev.duration = prevDur / 60;
+  }
+  broadcastState();
+  renderDashboard();
+}
+function clockInputHtml(which, idx, value){
+  var label = which === 'start' ? 'Orario di inizio' : 'Orario di fine';
+  return '<input type="text" inputmode="decimal" autocomplete="off" enterkeyhint="done" maxlength="8" value="' + value + '" title="' + label + ' (es. 9:30)" aria-label="' + label + '" data-action="edit-' + which + '" data-idx="' + idx + '" class="clock-input w-[4.75rem] bg-transparent text-sm tabular-nums text-gray-600 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />';
+}
 // Orario di inizio previsto dalla scaletta per l'intervento idx (secondi dalla mezzanotte).
 function plannedStartSeconds(idx){
   var sec = hhmmToMinutes(state.eventStart) * 60;
@@ -1796,9 +1854,98 @@ function moveRow(idx, dir){
   broadcastState();
   renderDashboard();
 }
+/* ---------------------------------------------------------------- */
+/* Annulla / Ripeti e scaletta iniziale                               */
+/* ---------------------------------------------------------------- */
+// Si ricorda solo il contenuto della scaletta (titolo, orari, righe), non il timer:
+// annullare una modifica non riporta indietro il tempo trascorso.
+var LS_ORIGINAL_KEY = 'rtl_original_v1';
+var HISTORY_MAX = 100;
+var undoStack = [], redoStack = [];
+var historyLast = null;
+function contentSnapshot(){
+  return {
+    eventTitle: state.eventTitle, eventStart: state.eventStart, eventEnd: state.eventEnd,
+    schedule: state.schedule.map(function(it){ return { id: it.id, speaker: it.speaker, duration: it.duration, type: it.type }; })
+  };
+}
+function snapshotKey(snap){ return JSON.stringify(snap); }
+// Le modifiche arrivate da un altro dispositivo diventano il nuovo punto di partenza.
+function historyRebase(){ historyLast = contentSnapshot(); updateHistoryButtons(); }
+function historyRecord(){
+  if(isStage || isCountdown) return;
+  var now = contentSnapshot();
+  if(historyLast && snapshotKey(now) !== snapshotKey(historyLast)){
+    undoStack.push(historyLast);
+    if(undoStack.length > HISTORY_MAX){ undoStack.shift(); }
+    redoStack = [];
+  }
+  historyLast = now;
+  updateHistoryButtons();
+}
+// Applica una versione salvata tenendo il tempo già trascorso delle righe che esistono ancora.
+function applyContent(snap, resetTimers){
+  var old = {};
+  state.schedule.forEach(function(it){ old[it.id] = it; });
+  var cur = state.schedule[state.currentIndex];
+  var curId = cur ? cur.id : null;
+  if(resetTimers && state.running){ actionPause(); }
+  state.eventTitle = snap.eventTitle;
+  state.eventStart = snap.eventStart;
+  state.eventEnd = snap.eventEnd;
+  state.schedule = snap.schedule.map(function(s){
+    var prev = !resetTimers && old[s.id];
+    return { id: s.id, speaker: s.speaker, duration: s.duration, type: s.type,
+      accumulatedSeconds: prev ? prev.accumulatedSeconds : 0, status: prev ? prev.status : 'pending' };
+  });
+  var newIdx = curId ? state.schedule.findIndex(function(it){ return it.id === curId; }) : -1;
+  if(resetTimers || newIdx === -1){
+    state.currentIndex = -1;
+    state.running = false;
+    state.activeStartEpoch = null;
+    if(resetTimers){ state.recoveredSeconds = 0; }
+  } else {
+    state.currentIndex = newIdx;
+  }
+}
+function historyStep(from, to, label){
+  if(from.length === 0) return;
+  var target = from.pop();
+  to.push(contentSnapshot());
+  applyContent(target, false);
+  historyLast = contentSnapshot();
+  broadcastState();
+  renderDashboard();
+  toast(label, 'info');
+}
+function actionUndo(){ historyStep(undoStack, redoStack, 'Modifica annullata.'); }
+function actionRedo(){ historyStep(redoStack, undoStack, 'Modifica ripetuta.'); }
+function saveOriginal(){
+  try{ localStorage.setItem(LS_ORIGINAL_KEY, snapshotKey(contentSnapshot())); }catch(e){}
+}
+function loadOriginal(){
+  try{ var raw = localStorage.getItem(LS_ORIGINAL_KEY); return raw ? JSON.parse(raw) : null; }catch(e){ return null; }
+}
+// Torna alla scaletta come era appena importata dal file e azzera i timer. Si può annullare.
+function actionRestoreOriginal(){
+  var orig = loadOriginal();
+  if(!orig || !orig.schedule){ toast('Nessuna scaletta importata da un file da ripristinare.', 'info'); return; }
+  if(!confirm('Tornare alla scaletta iniziale importata dal file (' + orig.schedule.length + ' righe)?\nLe modifiche e i tempi registrati verranno azzerati. Potrai comunque usare Annulla.')) return;
+  applyContent(orig, true);
+  broadcastState();
+  renderDashboard();
+  toast('Scaletta iniziale ripristinata.', 'success');
+}
+function updateHistoryButtons(){
+  var u = document.getElementById('undo-btn'), r = document.getElementById('redo-btn'), o = document.getElementById('restore-original-btn');
+  if(u){ u.disabled = undoStack.length === 0; }
+  if(r){ r.disabled = redoStack.length === 0; }
+  if(o){ o.disabled = !loadOriginal(); }
+}
+
 function clearSchedule(){
   if(state.schedule.length === 0) return;
-  if(!confirm('Svuotare completamente la scaletta? L\'azione non è reversibile.')) return;
+  if(!confirm('Svuotare completamente la scaletta? Potrai recuperarla con Annulla o Ripristina iniziale.')) return;
   state.schedule = [];
   state.currentIndex = -1;
   state.running = false;
@@ -2058,13 +2205,16 @@ function patchScheduleRow(tr, it, idx, v){
     var input = cells[3].querySelector('[data-action="edit-dur-' + k + '"]');
     if(input && document.activeElement !== input && input.value !== durParts[i]){ input.value = durParts[i]; }
   });
-  cells[4].textContent = v.plannedStart;
-  var statusSpan = cells[5].firstElementChild;
+  [[cells[4], v.plannedStart], [cells[5], v.plannedEnd]].forEach(function(pair){
+    var input = pair[0].firstElementChild;
+    if(input && document.activeElement !== input && input.value !== pair[1]){ input.value = pair[1]; }
+  });
+  var statusSpan = cells[6].firstElementChild;
   statusSpan.textContent = v.statusLabel;
   statusSpan.className = 'inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + v.statusClass;
-  cells[6].textContent = v.effTime;
-  cells[6].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
-  var goBtn = cells[7].querySelector('[data-go]');
+  cells[7].textContent = v.effTime;
+  cells[7].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
+  var goBtn = cells[8].querySelector('[data-go]');
   if(goBtn && goBtn.title !== v.goTitle){
     goBtn.dataset.action = v.goAction;
     goBtn.title = v.goTitle;
@@ -2077,13 +2227,14 @@ function patchScheduleRow(tr, it, idx, v){
 function renderScheduleTable(){
   var tbody = document.getElementById('schedule-tbody');
   if(state.schedule.length === 0){
-    tbody.innerHTML = '<tr><td colspan="8" class="text-center text-sm text-gray-400 py-10 px-4">Nessun intervento in scaletta. Importa una scaletta con l\'AI oppure aggiungi una riga manualmente.</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="9" class="text-center text-sm text-gray-400 py-10 px-4">Nessun intervento in scaletta. Importa una scaletta con l\'AI oppure aggiungi una riga manualmente.</td></tr>';
     return;
   }
   var cum = hhmmToMinutes(state.eventStart) * 60;
   var views = state.schedule.map(function(it, idx){
     var v = scheduleRowView(it, idx, secondsToClock(cum));
     cum += it.duration * 60;
+    v.plannedEnd = secondsToClock(cum);
     return v;
   });
 
@@ -2119,7 +2270,8 @@ function renderScheduleTable(){
         '<td class="c-dur px-3 py-2.5 whitespace-nowrap" data-label="Durata">' +
           durationFieldsHtml(it, idx) +
         '</td>' +
-        '<td class="c-start px-3 py-2.5 text-sm text-gray-500 tabular-nums" data-label="Inizio">' + plannedStart + '</td>' +
+        '<td class="c-start px-2 py-2.5 whitespace-nowrap" data-label="Inizio">' + clockInputHtml('start', idx, plannedStart) + '</td>' +
+        '<td class="c-end px-2 py-2.5 whitespace-nowrap" data-label="Fine">' + clockInputHtml('end', idx, v.plannedEnd) + '</td>' +
         '<td class="c-status px-3 py-2.5"><span class="inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + statusClass + '">' + statusLabel + '</span></td>' +
         '<td class="c-eff px-3 py-2.5 text-sm tabular-nums ' + effClass + '" data-eff="' + idx + '" data-label="Effettivo">' + effTime + '</td>' +
         '<td class="c-act px-3 py-2.5">' +
@@ -2805,6 +2957,8 @@ function applyImportedItems(items){
     state.recoveredSeconds = 0;
   }
   broadcastState();
+  saveOriginal();
+  updateHistoryButtons();
   renderDashboard();
   setImportPanelOpen(false);
 }
@@ -3546,6 +3700,18 @@ function wireEvents(){
     if(e.key === 'Escape'){ e.preventDefault(); closeRecoverModal(); }
   });
   document.getElementById('add-row-btn').addEventListener('click', addRow);
+  document.getElementById('undo-btn').addEventListener('click', actionUndo);
+  document.getElementById('redo-btn').addEventListener('click', actionRedo);
+  document.getElementById('restore-original-btn').addEventListener('click', actionRestoreOriginal);
+  // Ctrl/Cmd+Z annulla, Ctrl/Cmd+Shift+Z o Ctrl+Y ripete. Nei campi di testo resta l'annulla del campo.
+  document.addEventListener('keydown', function(e){
+    if(isStage || isCountdown || !(e.ctrlKey || e.metaKey) || e.altKey) return;
+    var t = e.target;
+    if(t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))) return;
+    var k = e.key.toLowerCase();
+    if(k === 'z' && !e.shiftKey){ e.preventDefault(); actionUndo(); }
+    else if((k === 'z' && e.shiftKey) || k === 'y'){ e.preventDefault(); actionRedo(); }
+  });
   document.getElementById('clear-schedule-btn').addEventListener('click', clearSchedule);
 
   document.getElementById('schedule-tbody').addEventListener('click', function(e){
@@ -3568,6 +3734,8 @@ function wireEvents(){
     var idx = parseInt(el.dataset.idx, 10);
     var action = el.dataset.action;
     if(action === 'edit-speaker'){ updateItemField(idx, 'speaker', el.value.trim()); }
+    else if(action === 'edit-start'){ updateItemClock(idx, 'start', el.value); }
+    else if(action === 'edit-end'){ updateItemClock(idx, 'end', el.value); }
     else if(action.indexOf('edit-dur-') === 0){
       // Campi vuoti = 0; minuti e secondi oltre 59 vengono riportati (90 min = 1:30:00).
       var row = el.closest('td');
@@ -3579,7 +3747,7 @@ function wireEvents(){
   // salto automatico al campo successivo e Invio per passare avanti o confermare.
   document.getElementById('schedule-tbody').addEventListener('focusin', function(e){
     var el = e.target;
-    if(el.classList && el.classList.contains('dur-part')){ setTimeout(function(){ try{ el.select(); }catch(err){} }, 0); }
+    if(el.classList && (el.classList.contains('dur-part') || el.classList.contains('clock-input'))){ setTimeout(function(){ try{ el.select(); }catch(err){} }, 0); }
   });
   document.getElementById('schedule-tbody').addEventListener('input', function(e){
     var el = e.target;
@@ -3599,6 +3767,7 @@ function wireEvents(){
       if(hours){ hours.focus(); }
       return;
     }
+    if(el.classList.contains('clock-input')){ e.preventDefault(); el.blur(); return; }
     if(!el.classList.contains('dur-part')) return;
     e.preventDefault();
     if(el.dataset.action.slice(-1) === 's'){ el.blur(); } else { focusNextDurPart(el); }
