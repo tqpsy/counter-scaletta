@@ -1,0 +1,72 @@
+{
+  "name": "regia-tempi-desktop",
+  "productName": "Regia Tempi",
+  "version": "1.0.0",
+  "description": "Regia Tempi per PC, con il server per gli schermi in rete incluso",
+  "author": "tqpsy",
+  "repository": "github:tqpsy/counter-scaletta",
+  "private": true,
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --win --publish never"
+  },
+  "devDependencies": {
+    "electron": "^38.0.0",
+    "electron-builder": "^26.0.0"
+  },
+  "build": {
+    "appId": "io.github.tqpsy.regiatempi",
+    "productName": "Regia Tempi",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "build/icon.png"
+    ],
+    "extraResources": [
+      {
+        "from": "../index.html",
+        "to": "web/index.html"
+      },
+      {
+        "from": "../app.css",
+        "to": "web/app.css"
+      },
+      {
+        "from": "../manifest.webmanifest",
+        "to": "web/manifest.webmanifest"
+      },
+      {
+        "from": "../icon.svg",
+        "to": "web/icon.svg"
+      },
+      {
+        "from": "../vendor",
+        "to": "web/vendor"
+      },
+      {
+        "from": "../server/regia-server.js",
+        "to": "web/server/regia-server.js"
+      }
+    ],
+    "win": {
+      "icon": "build/icon.png",
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "artifactName": "Regia-Tempi-Setup.${ext}",
+      "shortcutName": "Regia Tempi"
+    },
+    "portable": {
+      "artifactName": "Regia-Tempi-Portable.${ext}"
+    }
+  }
+}

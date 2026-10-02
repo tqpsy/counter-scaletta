@@ -509,6 +509,12 @@
         <button id="install-app-btn" type="button" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">Installa app</button>
       </div>
 
+      <div id="settings-desktop-section" class="border-t border-gray-100 pt-4">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Programma per Windows</h3>
+        <p class="text-xs text-gray-500 mb-2">Regia Tempi come programma da installare, con gli schermi in rete locale già inclusi: funziona senza internet e apre lo Stage da solo sul secondo schermo.</p>
+        <a id="desktop-download-link" href="#" target="_blank" rel="noopener" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">Scarica per Windows</a>
+      </div>
+
       <div class="border-t border-gray-100 pt-4">
         <div class="flex items-center justify-between gap-3 mb-2">
           <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Display</h3>
@@ -572,10 +578,17 @@
       </button>
     </div>
     <div class="px-5 py-4 space-y-4">
-      <p class="text-sm text-gray-600">Mostra Stage Display e Countdown su altri PC, telefoni o proiettori, anche collegati a reti diverse. Comanda solo questo PC; gli altri schermi guardano. Serve internet su tutti i dispositivi (va bene anche l'hotspot di un telefono).</p>
+      <p class="text-sm text-gray-600">Mostra Stage Display e Countdown su altri PC, telefoni o proiettori. Comanda solo questo PC; gli altri schermi guardano.</p>
       <p id="share-unconfigured" class="hidden text-xs rounded-lg bg-amber-50 border border-amber-200 text-amber-800 px-3 py-2.5">La condivisione in rete non è ancora configurata: manca il collegamento a Firebase (vedi il README del progetto).</p>
-      <div id="share-off">
-        <button id="share-start-btn" type="button" class="inline-flex items-center gap-2 bg-ink hover:bg-ink/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Attiva condivisione</button>
+      <div id="share-off" class="space-y-4">
+        <div>
+          <button id="share-start-btn" type="button" class="inline-flex items-center gap-2 bg-ink hover:bg-ink/90 text-white text-sm font-semibold px-4 py-2.5 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">Attiva via internet</button>
+          <p class="text-xs text-gray-500 mt-1.5">Schermi anche su reti diverse. Serve internet su tutti i dispositivi (va bene l'hotspot di un telefono).</p>
+        </div>
+        <div class="border-t border-gray-100 pt-4">
+          <button id="share-local-btn" type="button" class="inline-flex items-center gap-2 text-sm font-semibold border border-gray-200 hover:border-accent hover:text-accent px-4 py-2.5 rounded-lg transition-colors">Attiva in rete locale</button>
+          <p id="share-local-desc" class="text-xs text-gray-500 mt-1.5">Senza internet. Prima avvia il server su questo PC (doppio clic su <span class="font-mono">avvia-server</span> nella cartella <span class="font-mono">server</span>); tutti gli schermi devono essere sulla stessa rete Wi-Fi o sullo stesso router.</p>
+        </div>
       </div>
       <div id="share-on" class="hidden space-y-3">
         <p class="text-xs flex items-center gap-2"><span id="share-status-dot" class="w-2 h-2 rounded-full shrink-0"></span><span id="share-status-text" class="text-gray-600"></span></p>
@@ -585,10 +598,12 @@
         </div>
         <div id="share-qr" class="flex items-center justify-center mx-auto w-56 h-56 rounded-lg border border-gray-100 bg-white text-xs text-gray-400 text-center p-2"></div>
         <p class="text-xs text-gray-500 text-center">Inquadra il QR con il telefono, oppure apri il link sull'altro schermo.</p>
+        <select id="share-address" class="hidden w-full text-xs border border-gray-200 rounded-lg px-2.5 py-2 bg-white text-gray-700" aria-label="Rete da usare"></select>
         <div class="flex gap-2">
           <input id="share-link" type="text" readonly class="flex-1 min-w-0 text-xs font-mono border border-gray-200 rounded-lg px-2.5 py-2 text-gray-700 bg-gray-50" />
           <button id="share-copy-btn" type="button" class="text-xs font-semibold border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors shrink-0">Copia</button>
         </div>
+        <p id="share-local-hint" class="hidden text-[11px] text-gray-400 leading-relaxed">In rete locale il telefono deve essere sulla stessa rete Wi-Fi del PC. Il collegamento non è https, quindi il telefono potrebbe spegnere lo schermo: se serve, allunga lo standby nelle sue impostazioni.</p>
         <button id="share-stop-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Interrompi condivisione</button>
       </div>
     </div>
@@ -619,7 +634,17 @@ var FIREBASE_CONFIG = {
   databaseURL: 'https://regia-tempi-default-rtdb.europe-west1.firebasedatabase.app'
 };
 var LS_SHARE_KEY = 'rtl_share_v1';
-var QR_LIB_URL = 'https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js';
+var QR_LIB_URL = 'vendor/qrcode.js';
+// Server locale (cartella server/): stessa API di Firebase, senza internet.
+var LOCAL_SERVER_PORT = 8765;
+// Pagina servita dal server locale invece che dal sito (lo segnala il server).
+var onLocalServer = !!window.REGIA_LOCAL_SERVER;
+// Dentro l'app per PC (cartella desktop/) il server locale parte da solo.
+var isDesktopApp = !!window.REGIA_DESKTOP;
+// Indirizzo pubblico del sito: i link "via internet" puntano qui anche quando
+// la dashboard è aperta dal server locale o dall'app per PC.
+var PUBLIC_SITE_URL = 'https://tqpsy.github.io/counter-scaletta/';
+var DESKTOP_DOWNLOAD_URL = 'https://github.com/tqpsy/counter-scaletta/releases/latest/download/Regia-Tempi-Setup.exe';
 
 var DEFAULT_FAVICON_URI = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect width="24" height="24" rx="6" fill="#10131A"/><g fill="none" stroke="#E8A33D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="13" r="7"/><path d="M12 9v4l3 2M9 3h6M12 3v2"/></g></svg>');
 
@@ -874,15 +899,21 @@ if(bc){
 // (serializzato in JSON, così array vuoti e null restano com'erano); gli schermi
 // remoti lo ascoltano con l'API REST in streaming (EventSource), senza SDK.
 // Ogni scrittura porta anche _clock, l'ora della regia, per allineare i timer.
+// In modalità "local" la stessa API la offre il server locale sul PC di regia.
 var ROOM_ALPHABET = 'abcdefghjkmnpqrstuvwxyz23456789';
 var SHARE_HEARTBEAT_MS = 15000;
 var share = {
-  room: null, uid: null, refreshToken: null, token: null, tokenExp: 0,
-  pending: null, inFlight: false, retryTimer: null, status: 'off', tab: 'stage'
+  room: null, mode: 'cloud', uid: null, refreshToken: null, token: null, tokenExp: 0, localKey: null,
+  pending: null, inFlight: false, retryTimer: null, status: 'off', tab: 'stage', addresses: [], address: null
 };
 
 function shareConfigured(){ return !!(FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.databaseURL); }
-function dbUrl(path){ return FIREBASE_CONFIG.databaseURL.replace(/\/+$/, '') + '/' + path + '.json'; }
+function localServerBase(){ return onLocalServer ? window.location.origin : 'http://localhost:' + LOCAL_SERVER_PORT; }
+function syncBase(){
+  var local = isRemoteDisplay ? onLocalServer : share.mode === 'local';
+  return local ? localServerBase() : FIREBASE_CONFIG.databaseURL.replace(/\/+$/, '');
+}
+function dbUrl(path){ return syncBase() + '/' + path + '.json'; }
 function newRoomId(){
   var bytes = new Uint8Array(10), out = '';
   window.crypto.getRandomValues(bytes);
@@ -892,11 +923,21 @@ function newRoomId(){
 function loadShare(){
   try{
     var saved = JSON.parse(localStorage.getItem(LS_SHARE_KEY) || 'null');
-    if(saved){ share.room = saved.room || null; share.uid = saved.uid || null; share.refreshToken = saved.refreshToken || null; }
+    if(saved){
+      share.room = saved.room || null;
+      share.mode = saved.mode === 'local' ? 'local' : 'cloud';
+      share.uid = saved.uid || null;
+      share.refreshToken = saved.refreshToken || null;
+      share.localKey = saved.localKey || null;
+    }
   }catch(e){}
 }
 function saveShare(){
-  try{ localStorage.setItem(LS_SHARE_KEY, JSON.stringify({ room: share.room, uid: share.uid, refreshToken: share.refreshToken })); }catch(e){}
+  try{
+    localStorage.setItem(LS_SHARE_KEY, JSON.stringify({
+      room: share.room, mode: share.mode, uid: share.uid, refreshToken: share.refreshToken, localKey: share.localKey
+    }));
+  }catch(e){}
 }
 
 function postJson(url, body, form){
@@ -914,6 +955,11 @@ function postJson(url, body, form){
 // Accesso anonimo: dà alla regia un'identità stabile (salvata qui), così solo
 // questo browser può scrivere nella propria stanza.
 function getShareToken(){
+  // Il server locale riconosce la regia da una chiave casuale creata qui.
+  if(share.mode === 'local'){
+    if(!share.localKey){ share.localKey = newRoomId() + newRoomId(); saveShare(); }
+    return Promise.resolve(share.localKey);
+  }
   if(share.token && Date.now() < share.tokenExp - 60000) return Promise.resolve(share.token);
   var key = encodeURIComponent(FIREBASE_CONFIG.apiKey);
   var req = share.refreshToken
@@ -956,7 +1002,15 @@ function flushRemote(){
   }).then(function(res){
     if(res.status === 401){ share.token = null; }
     if(!res.ok) throw new Error('HTTP ' + res.status);
+    // Dopo un errore, o se il server locale è stato riavviato e ha perso la
+    // stanza, si rimanda tutto lo stato: gli schermi ne ricevono una copia intera.
+    var resend = share.status === 'error';
     setShareStatus('ok');
+    if(share.mode !== 'local') return resend;
+    if(!share.addresses.length) refreshLocalAddresses();
+    return res.json().then(function(d){ return resend || !!(d && d.__created); }, function(){ return resend; });
+  }).then(function(resend){
+    if(resend && share.room === room) queueRemote(state);
   }).catch(function(){
     // I valori più recenti in coda vincono su quelli della scrittura fallita.
     if(share.room === room){ share.pending = Object.assign(body, share.pending || {}); }
@@ -968,19 +1022,32 @@ function flushRemote(){
   });
 }
 
-function startShare(){
-  if(!shareConfigured() || share.room) return;
+function startShare(mode){
+  if(share.room) return;
+  if(mode !== 'local' && !shareConfigured()) return;
+  share.mode = mode === 'local' ? 'local' : 'cloud';
   share.room = newRoomId();
   saveShare();
   setShareStatus('connecting');
+  if(share.mode === 'local') refreshLocalAddresses();
   queueRemote(state);
 }
 function resumeShare(){
   loadShare();
   if(!share.room) return;
-  if(!shareConfigured()){ share.room = null; return; }
+  if(share.mode !== 'local' && !shareConfigured()){ share.room = null; return; }
   setShareStatus('connecting');
+  if(share.mode === 'local') refreshLocalAddresses();
   queueRemote(state);
+}
+// Gli schermi raggiungono il server con l'indirizzo del PC nella rete del
+// locale: lo chiede al server stesso, che conosce le schede di rete.
+function refreshLocalAddresses(){
+  fetch(localServerBase() + '/__regia').then(function(res){ return res.json(); }).then(function(info){
+    share.addresses = (info && info.addresses) || [];
+    if(share.addresses.indexOf(share.address) === -1) share.address = share.addresses[0] || null;
+    if(!document.getElementById('share-modal').classList.contains('hidden')) renderShareModal();
+  }).catch(function(){});
 }
 function stopShare(){
   var room = share.room;
@@ -1011,6 +1078,11 @@ function setShareStatus(status){
 }
 function shareLink(screen){
   var base = window.location.href.split('#')[0].split('?')[0];
+  if(share.mode !== 'local' && window.location.protocol !== 'https:') base = PUBLIC_SITE_URL;
+  if(share.mode === 'local'){
+    if(!share.address) return '';
+    base = 'http://' + share.address + ':' + LOCAL_SERVER_PORT + '/';
+  }
   return base + '?' + (screen === 'countdown' ? 'countdown=1' : 'stage=1') + '&room=' + share.room;
 }
 var qrLibPromise = null;
@@ -1043,7 +1115,9 @@ function renderShareQr(link){
 var SHARE_STATUS_TEXT = {
   connecting: 'Collegamento in corso…',
   ok: 'Condivisione attiva: gli schermi collegati si aggiornano in tempo reale.',
-  error: 'Problema di connessione: riprovo tra poco. Controlla che questo PC sia collegato a internet.'
+  error: 'Problema di connessione: riprovo tra poco. Controlla che questo PC sia collegato a internet.',
+  localError: 'Il server locale non risponde: avvialo su questo PC (doppio clic su avvia-server nella cartella server). Riprovo tra poco.',
+  noAddress: 'Questo PC non risulta collegato a nessuna rete: collegalo al Wi-Fi o al router della sala.'
 };
 function renderShareModal(){
   var configured = shareConfigured();
@@ -1054,7 +1128,19 @@ function renderShareModal(){
   if(!share.room) return;
   var dot = document.getElementById('share-status-dot');
   dot.className = 'w-2 h-2 rounded-full shrink-0 ' + (share.status === 'ok' ? 'bg-emerald-500' : 'bg-amber-400');
-  document.getElementById('share-status-text').textContent = SHARE_STATUS_TEXT[share.status] || '';
+  var local = share.mode === 'local';
+  var statusKey = share.status;
+  if(local && statusKey === 'error') statusKey = 'localError';
+  else if(local && statusKey === 'ok' && !share.address) statusKey = 'noAddress';
+  document.getElementById('share-status-text').textContent = (local ? 'Rete locale. ' : 'Via internet. ') + (SHARE_STATUS_TEXT[statusKey] || '');
+  document.getElementById('share-local-hint').classList.toggle('hidden', !local);
+  var select = document.getElementById('share-address');
+  select.classList.toggle('hidden', !local || share.addresses.length < 2);
+  if(local && select.getAttribute('data-list') !== share.addresses.join(',')){
+    select.setAttribute('data-list', share.addresses.join(','));
+    select.innerHTML = share.addresses.map(function(ip){ return '<option value="' + escapeHtml(ip) + '">Rete ' + escapeHtml(ip) + '</option>'; }).join('');
+  }
+  if(local && share.address) select.value = share.address;
   Array.prototype.forEach.call(document.querySelectorAll('.share-tab'), function(b){
     var on = b.getAttribute('data-screen') === share.tab;
     b.classList.toggle('bg-white', on);
@@ -1064,10 +1150,19 @@ function renderShareModal(){
   });
   var link = shareLink(share.tab);
   var input = document.getElementById('share-link');
-  if(input.value !== link){ input.value = link; renderShareQr(link); }
+  if(input.value !== link || !link){
+    input.value = link;
+    if(link){ renderShareQr(link); }
+    else {
+      var box = document.getElementById('share-qr');
+      box.dataset.link = '';
+      box.textContent = 'In attesa del server locale…';
+    }
+  }
 }
 function openShareModal(){
   document.getElementById('share-modal').classList.remove('hidden');
+  if(share.room && share.mode === 'local') refreshLocalAddresses();
   renderShareModal();
 }
 function closeShareModal(){
@@ -1077,7 +1172,9 @@ function wireShareEvents(){
   document.getElementById('share-btn').addEventListener('click', openShareModal);
   document.getElementById('share-close-btn').addEventListener('click', closeShareModal);
   document.getElementById('share-modal').addEventListener('click', function(e){ if(e.target === this) closeShareModal(); });
-  document.getElementById('share-start-btn').addEventListener('click', function(){ startShare(); renderShareModal(); });
+  document.getElementById('share-start-btn').addEventListener('click', function(){ startShare('cloud'); renderShareModal(); });
+  document.getElementById('share-local-btn').addEventListener('click', function(){ startShare('local'); renderShareModal(); });
+  document.getElementById('share-address').addEventListener('change', function(){ share.address = this.value; renderShareModal(); });
   document.getElementById('share-stop-btn').addEventListener('click', function(){
     if(!window.confirm('Interrompere la condivisione? Gli schermi collegati smetteranno di aggiornarsi.')) return;
     stopShare();
@@ -1161,7 +1258,7 @@ function onRemoteEvent(e, isPut){
 }
 function connectRemote(){
   if(remote.es){ try{ remote.es.close(); }catch(e){} }
-  if(!shareConfigured() || !window.EventSource){ setRemoteStatus('denied'); return; }
+  if((!onLocalServer && !shareConfigured()) || !window.EventSource){ setRemoteStatus('denied'); return; }
   if(remote.status !== 'ok') setRemoteStatus(remote.status === 'offline' ? 'offline' : 'connecting');
   remote.lastEventAt = Date.now();
   var es = new EventSource(dbUrl('rooms/' + remoteRoom + '/state'));
@@ -3321,6 +3418,13 @@ document.getElementById('install-app-btn').addEventListener('click', function(){
   document.getElementById('settings-install-section').classList.add('hidden');
   p.userChoice.catch(function(){});
 });
+
+// Nell'app per PC il server locale è già attivo e non serve scaricarla.
+document.getElementById('desktop-download-link').href = DESKTOP_DOWNLOAD_URL;
+if(isDesktopApp){
+  document.getElementById('settings-desktop-section').classList.add('hidden');
+  document.getElementById('share-local-desc').textContent = 'Senza internet: il server è già attivo in questo programma. Tutti gli schermi devono essere sulla stessa rete Wi-Fi o sullo stesso router.';
+}
 
 // Service worker: permette di riaprire dashboard e Stage Display anche offline.
 if('serviceWorker' in navigator && /^https?:$/.test(location.protocol) && !isEmbed){

@@ -4,9 +4,9 @@
 var CACHE_VERSION = 'v6';
 var APP_CACHE = 'regia-tempi-app-' + CACHE_VERSION;
 var RUNTIME_CACHE = 'regia-tempi-runtime-' + CACHE_VERSION;
-var PRECACHE = ['./', './index.html', './app.css', './manifest.webmanifest', './icon.svg'];
-// Risorse esterne da tenere in cache: font, pdf.js e la libreria per i QR.
-var RUNTIME_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com', 'cdn.jsdelivr.net'];
+var PRECACHE = ['./', './index.html', './app.css', './manifest.webmanifest', './icon.svg', './vendor/qrcode.js'];
+// Risorse esterne da tenere in cache: font e pdf.js.
+var RUNTIME_HOSTS = ['fonts.googleapis.com', 'fonts.gstatic.com', 'cdnjs.cloudflare.com'];
 // pdf.js viene scaricato subito, così anche l'import dei PDF funziona offline.
 var PDFJS_FILES = [
   'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js',
