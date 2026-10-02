@@ -67,9 +67,14 @@ var windowOptions = {
 function createMainWindow(url){
   mainWindow = new BrowserWindow(Object.assign({
     width: 1440, height: 900, minWidth: 360, minHeight: 500,
-    title: 'Regia Tempi', backgroundColor: '#ffffff', show: false
+    title: 'Regia Tempi · versione ' + app.getVersion(), backgroundColor: '#ffffff', show: false
   }, windowOptions));
   mainWindow.once('ready-to-show', function(){ mainWindow.maximize(); mainWindow.show(); mainWindow.focus(); });
+  // Nella barra del titolo, accanto al titolo della pagina, la versione installata.
+  mainWindow.on('page-title-updated', function(e, title){
+    e.preventDefault();
+    mainWindow.setTitle(title + ' · versione ' + app.getVersion());
+  });
   // Chiusa la dashboard si chiudono anche Stage e Countdown.
   mainWindow.on('closed', function(){ mainWindow = null; app.quit(); });
   mainWindow.loadURL(url);
