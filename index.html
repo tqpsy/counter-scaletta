@@ -186,8 +186,20 @@
         <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:mb-4">
         <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 xl:mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
 
+        <input id="onair-timer-input" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done" aria-label="Tempo rimanente" title="Scrivi il tempo rimanente (es. 5, 4:30 o 1:05:00), Invio per confermare, Esc per annullare" class="hidden w-full xl:w-56 font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 font-semibold tabular-nums bg-white/10 text-white rounded-lg px-2 mb-1 xl:mb-0 focus:outline-none focus:ring-2 focus:ring-accent" />
         <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
-        <p id="onair-planned" class="text-xs text-white/40 mb-5 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
+        <p id="onair-planned" class="text-xs text-white/40 mb-3 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
+        </div>
+
+        <!-- Correzione al volo del tempo dell'intervento in onda: cambia la sua durata. -->
+        <div id="onair-adjust" class="hidden flex flex-wrap items-center gap-1.5 mb-5 xl:mb-4">
+          <span class="text-xs font-semibold tracking-wide text-white/50 mr-1">TEMPO</span>
+          <button type="button" data-adjust="-60" title="Togli 1 minuto all'intervento in onda" class="text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors tabular-nums">−1 min</button>
+          <button type="button" data-adjust="60" title="Aggiungi 1 minuto all'intervento in onda" class="text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors tabular-nums">+1 min</button>
+          <button type="button" data-adjust="300" title="Aggiungi 5 minuti all'intervento in onda" class="text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors tabular-nums">+5 min</button>
+          <button id="onair-edit-btn" type="button" title="Scrivi il tempo rimanente (puoi anche cliccare sul timer)" class="inline-flex items-center gap-1 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors">
+            <svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg> Modifica
+          </button>
         </div>
 
         <div class="flex flex-wrap items-center gap-2 mb-5 xl:mb-4">
@@ -648,6 +660,8 @@ var filmIconSVG = '<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stro
 var chevronUpSVG = '<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 15l-6-6-6 6"/></svg>';
 var chevronDownSVG = '<svg viewBox="0 0 24 24" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>';
 var trashIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v3"/></svg>';
+var pauseIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>';
+var playIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>';
 var targetIconSVG = '<svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5" fill="currentColor" stroke="none"/></svg>';
 
 var params = new URLSearchParams(window.location.search);
@@ -1527,6 +1541,45 @@ function autoAdvanceFixed(){
   broadcastState();
   renderDashboard();
 }
+// Correzione del tempo in onda: si cambia la durata dell'intervento corrente,
+// così il conto alla rovescia, lo Stage e gli orari successivi si aggiornano insieme.
+function adjustCurrentTime(deltaSeconds){
+  var cur = state.schedule[state.currentIndex];
+  if(!cur) return;
+  cur.duration = Math.max(1, cur.duration * 60 + deltaSeconds) / 60;
+  broadcastState();
+  renderDashboard();
+}
+function setCurrentRemaining(remainingSeconds){
+  var cur = state.schedule[state.currentIndex];
+  if(!cur) return;
+  cur.duration = Math.max(1, getItemElapsedSeconds(state.currentIndex) + remainingSeconds) / 60;
+  broadcastState();
+  renderDashboard();
+}
+function startTimerEdit(){
+  var cur = state.schedule[state.currentIndex];
+  if(!cur) return;
+  var timerEl = document.getElementById('onair-timer');
+  var input = document.getElementById('onair-timer-input');
+  input.value = formatTimer(Math.max(0, getRemainingSeconds(state.currentIndex)));
+  timerEl.classList.add('hidden');
+  input.classList.remove('hidden');
+  input.focus();
+  input.select();
+}
+function endTimerEdit(apply){
+  var timerEl = document.getElementById('onair-timer');
+  var input = document.getElementById('onair-timer-input');
+  if(input.classList.contains('hidden')) return;
+  input.classList.add('hidden');
+  timerEl.classList.remove('hidden');
+  if(!apply) return;
+  var text = input.value.trim();
+  var minutes = /^0+([.:,\s]0+)*$/.test(text) ? 0 : parseDuration(text);
+  if(minutes === null){ toast('Tempo non valido. Scrivi per esempio 5, 4:30 o 1:05:00.', 'error'); return; }
+  setCurrentRemaining(minutes * 60);
+}
 function selectCurrent(idx){
   if(idx < 0 || idx >= state.schedule.length) return;
   if(state.running){ actionPause(); }
@@ -1794,6 +1847,11 @@ function renderDashboard(){
     plannedEl.textContent = 'Durata pianificata: ' + formatSecondsSigned(cur.duration*60);
   }
 
+  document.getElementById('onair-adjust').classList.toggle('hidden', !cur);
+  document.getElementById('onair-timer').classList.toggle('cursor-pointer', !!cur);
+  document.getElementById('onair-timer').title = cur ? 'Clicca per modificare il tempo rimanente' : '';
+  if(!cur){ endTimerEdit(false); }
+
   var delay = getTotalDelaySeconds();
   updateDelayPill(delay);
 
@@ -1882,7 +1940,12 @@ function scheduleRowView(it, idx, plannedStart){
     effClass: elapsed > it.duration*60 ? 'text-red-600 font-medium' : 'text-gray-500',
     rowBg: isCurrent ? 'bg-amber-50/60' : (it.status === 'done' ? 'bg-gray-50/60' : 'bg-white'),
     typeBtnClass: it.type === 'flex' ? 'bg-sky-50 text-sky-700 hover:bg-sky-100' : 'bg-violet-50 text-violet-700 hover:bg-violet-100',
-    typeLabel: it.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Fisso'
+    typeLabel: it.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Fisso',
+    // Sull'intervento attuale il pulsante è Pausa/Avvia; sugli altri lo prepara come attuale, in pausa.
+    goAction: isCurrent ? 'toggle-play' : 'select-current',
+    goTitle: isCurrent ? (state.running ? 'Metti in pausa' : 'Avvia') : 'Metti questo intervento in onda (parte in pausa)',
+    goIcon: isCurrent && state.running ? pauseIconSVG : (isCurrent ? playIconSVG : targetIconSVG),
+    goClass: 'p-1.5 rounded ' + (isCurrent ? (state.running ? 'bg-amber-100 hover:bg-amber-200 text-amber-700' : 'bg-emerald-100 hover:bg-emerald-200 text-emerald-700') : 'hover:bg-gray-100 text-gray-500')
   };
 }
 
@@ -1908,6 +1971,14 @@ function patchScheduleRow(tr, it, idx, v){
   statusSpan.className = 'inline-flex px-2 py-0.5 rounded text-xs font-medium whitespace-nowrap ' + v.statusClass;
   cells[6].textContent = v.effTime;
   cells[6].className = 'c-eff px-3 py-2.5 text-sm tabular-nums ' + v.effClass;
+  var goBtn = cells[7].querySelector('[data-go]');
+  if(goBtn && goBtn.title !== v.goTitle){
+    goBtn.dataset.action = v.goAction;
+    goBtn.title = v.goTitle;
+    goBtn.setAttribute('aria-label', v.goTitle);
+    goBtn.className = v.goClass;
+    goBtn.innerHTML = v.goIcon;
+  }
 }
 
 function renderScheduleTable(){
@@ -1960,7 +2031,7 @@ function renderScheduleTable(){
         '<td class="c-eff px-3 py-2.5 text-sm tabular-nums ' + effClass + '" data-eff="' + idx + '" data-label="Effettivo">' + effTime + '</td>' +
         '<td class="c-act px-3 py-2.5">' +
           '<div class="flex items-center gap-1 opacity-70 group-hover:opacity-100 transition-opacity">' +
-            '<button type="button" data-action="select-current" data-idx="' + idx + '" title="Seleziona come attuale" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">' + targetIconSVG + '</button>' +
+            '<button type="button" data-go="1" data-action="' + v.goAction + '" data-idx="' + idx + '" title="' + v.goTitle + '" aria-label="' + v.goTitle + '" class="' + v.goClass + '">' + v.goIcon + '</button>' +
             '<button type="button" data-action="move-up" data-idx="' + idx + '" title="Sposta su" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">' + chevronUpSVG + '</button>' +
             '<button type="button" data-action="move-down" data-idx="' + idx + '" title="Sposta giù" class="p-1.5 rounded hover:bg-gray-100 text-gray-500">' + chevronDownSVG + '</button>' +
             '<button type="button" data-action="delete-row" data-idx="' + idx + '" title="Elimina" class="p-1.5 rounded hover:bg-red-50 text-gray-400 hover:text-red-600">' + trashIconSVG + '</button>' +
@@ -3305,6 +3376,18 @@ function wireEvents(){
   });
 
   document.getElementById('play-btn').addEventListener('click', actionPlay);
+  document.getElementById('onair-adjust').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-adjust]');
+    if(btn){ adjustCurrentTime(parseInt(btn.dataset.adjust, 10)); }
+  });
+  document.getElementById('onair-edit-btn').addEventListener('click', startTimerEdit);
+  document.getElementById('onair-timer').addEventListener('click', startTimerEdit);
+  var timerInput = document.getElementById('onair-timer-input');
+  timerInput.addEventListener('keydown', function(e){
+    if(e.key === 'Enter'){ e.preventDefault(); endTimerEdit(true); }
+    else if(e.key === 'Escape'){ e.preventDefault(); endTimerEdit(false); }
+  });
+  timerInput.addEventListener('blur', function(){ endTimerEdit(true); });
   document.getElementById('pause-btn').addEventListener('click', actionPause);
   document.getElementById('reset-btn').addEventListener('click', actionReset);
   document.getElementById('next-btn').addEventListener('click', actionNext);
@@ -3334,6 +3417,7 @@ function wireEvents(){
       var it = state.schedule[idx];
       updateItemField(idx, 'type', it.type === 'flex' ? 'fixed' : 'flex');
     } else if(action === 'select-current'){ selectCurrent(idx); }
+    else if(action === 'toggle-play'){ if(state.running){ actionPause(); } else { actionPlay(); } }
     else if(action === 'move-up'){ moveRow(idx, -1); }
     else if(action === 'move-down'){ moveRow(idx, 1); }
     else if(action === 'delete-row'){ deleteRow(idx); }
