@@ -343,10 +343,12 @@
       <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 text-xs text-gray-500 leading-relaxed">
         <h2 class="font-display text-sm font-semibold text-gray-900 mb-2">Come funziona</h2>
         <ul class="list-disc pl-4 space-y-1">
-          <li>Tutti i dati (scaletta, chiave API, logo) restano salvati solo su questo dispositivo/browser, in locale.</li>
-          <li>Apri lo Stage Display: si sincronizza in tempo reale con questa dashboard tramite BroadcastChannel, anche offline.</li>
-          <li>Per vedere counter e scaletta da altri PC, telefoni o proiettori usa "Schermi in rete" (icona Wi-Fi in alto): serve internet su tutti i dispositivi.</li>
-          <li>"Auto-Balance" e "Adatta" accorciano prima l'intervento in corso e poi, solo se serve, i blocchi "Relatore" successivi; prima di cambiare qualcosa mostrano un'anteprima da confermare. I blocchi "fisso" restano invariati.</li>
+          <li>Carica la scaletta (PDF o foto) oppure aggiungi le righe a mano. Durata, inizio e fine di ogni riga si possono modificare: le righe successive si spostano, quelle prima restano come sono.</li>
+          <li>Play (o la barra spaziatrice) avvia l'intervento; alla prima partenza gli orari della scaletta si allineano all'ora reale. I blocchi "Fisso" a zero passano da soli al successivo, in pausa.</li>
+          <li>Con -1/+1/+5 min o Modifica correggi al volo il tempo dell'intervento in onda. Annulla, Ripeti e Ripristina iniziale rimediano agli errori.</li>
+          <li>"Auto-Balance" e "Adatta" accorciano prima l'intervento in corso e poi, solo se serve, i blocchi "Relatore" successivi, con un'anteprima da confermare. I blocchi "Fisso" restano invariati.</li>
+          <li>Stage e Countdown si aggiornano da soli su questo PC, anche senza internet. Per altri PC, telefoni o proiettori usa "Schermi in rete" (icona Wi-Fi in alto), che richiede internet.</li>
+          <li>Scaletta, logo e chiave API restano salvati solo su questo dispositivo.</li>
         </ul>
       </section>
 
@@ -435,7 +437,7 @@
   </main>
 
   <footer class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 pb-8 pt-2">
-    <p class="text-[11px] text-gray-400">Regia Tempi — applicazione client-side, nessun dato lascia questo browser eccetto le chiamate dirette alle API AI selezionate per l'importazione della scaletta.</p>
+    <p class="text-[11px] text-gray-400">Regia Tempi — i dati restano su questo dispositivo. Escono solo le foto inviate all'AI per l'importazione e, se li attivi, gli aggiornamenti per gli schermi in rete.</p>
   </footer>
 </div>
 
@@ -1490,8 +1492,9 @@ function setNextLine(el, text, idx){
   el.textContent = text;
   if(idx < 0) return;
   var info = nextStartDelay(idx);
+  // Sotto il minuto non è un ritardo da segnalare (la partenza reale è arrotondata al minuto).
+  if(Math.abs(info.delay) < 60) return;
   var min = Math.round(info.delay / 60);
-  if(min === 0) return;
   var span = document.createElement('span');
   span.className = min > 0 ? 'next-late' : 'next-early';
   span.textContent = ' \u00b7 ' + (min > 0 ? 'ritardo +' + min : 'anticipo ' + (-min)) + '\u00a0min (ore\u00a0' + secondsToClock(Math.round(info.expected / 60) * 60) + ')';
@@ -1556,11 +1559,28 @@ function actionPlay(){
   }
   var item = state.schedule[state.currentIndex];
   if(!item) return;
+  var firstStart = !hasEventStarted();
   item.status = 'active';
   state.running = true;
   state.activeStartEpoch = Date.now();
+  if(firstStart){ alignScheduleToRealStart(state.currentIndex); }
   broadcastState();
   renderDashboard();
+}
+// Alla prima partenza la scaletta si allinea all'orario reale: se l'evento parte in ritardo
+// (o in anticipo) inizio e fine di tutte le righe si spostano, così orari, "Prossimo" e stime
+// seguono quello che succede davvero. Si torna al piano con Annulla o Ripristina iniziale.
+function alignScheduleToRealStart(idx){
+  var planned = plannedStartSeconds(idx);
+  var diff = nowSecondsSinceMidnight() - planned;
+  if(diff < -43200){ diff += 86400; } else if(diff > 43200){ diff -= 86400; }
+  // Per difetto: l'inizio non deve cadere dopo l'ora attuale (il Countdown tornerebbe a contare).
+  var shiftMin = Math.floor(diff / 60);
+  if(shiftMin === 0) return;
+  var oldStart = secondsToClock(planned);
+  var startMin = ((hhmmToMinutes(state.eventStart) + shiftMin) % 1440 + 1440) % 1440;
+  state.eventStart = pad2(Math.floor(startMin/60)) + ':' + pad2(startMin % 60);
+  toast('Partenza alle ' + secondsToClock(plannedStartSeconds(idx)) + ' invece delle ' + oldStart + ': orari della scaletta aggiornati (' + (shiftMin > 0 ? '+' : '') + shiftMin + ' min). Annulla per tornare al piano.', 'info');
 }
 function actionPause(){
   if(!state.running) return;
