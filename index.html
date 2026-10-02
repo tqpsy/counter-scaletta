@@ -1349,6 +1349,12 @@ function secondsToClock(totalSeconds){
   var out = pad2(Math.floor(s/3600)) + ':' + pad2(Math.floor((s%3600)/60));
   return s % 60 ? out + ':' + pad2(s%60) : out;
 }
+// Orario di inizio previsto dalla scaletta per l'intervento idx (secondi dalla mezzanotte).
+function plannedStartSeconds(idx){
+  var sec = hhmmToMinutes(state.eventStart) * 60;
+  for(var i = 0; i < idx && i < state.schedule.length; i++){ sec += state.schedule[i].duration * 60; }
+  return sec;
+}
 function uid(){ return 'it_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2,8); }
 // Ora corrente allineata all'orologio del PC di regia (sugli schermi remoti
 // l'orologio del dispositivo può essere avanti o indietro di qualche secondo).
@@ -2113,7 +2119,7 @@ function tickStage(){
     statusEl.className = statusClass;
     setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
-    nextEl.textContent = total > 0 ? ('Si parte con: ' + state.schedule[0].speaker) : '';
+    nextEl.textContent = total > 0 ? ('Si parte con: ' + state.schedule[0].speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '';
     barEl.style.width = '0';
     return;
   }
@@ -2131,7 +2137,7 @@ function tickStage(){
   barEl.style.width = (dur > 0 ? Math.min(100, Math.max(0, (1 - rem / dur) * 100)) : 100) + '%';
   barEl.style.background = barColor;
   var nextItem = state.schedule[state.currentIndex+1];
-  nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta';
+  nextEl.textContent = nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta';
 }
 
 /* ---------------------------------------------------------------- */
