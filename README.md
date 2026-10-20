@@ -5,6 +5,10 @@ Dashboard per gestire i tempi dei relatori in eventi live, con Stage Display e C
 L'app è statica: basta pubblicare `index.html`, `app.css`, `sw.js`, `manifest.webmanifest`, `icon.svg` e la cartella `vendor`.
 Dopo la prima apertura online, dashboard, Stage Display e Countdown funzionano anche senza connessione.
 
+## Interfaccia v2 (in prova)
+
+Nelle impostazioni, sezione "Interfaccia", si può passare alla versione 2: in vista resta solo la diretta (intervento in onda, timer, Play/Pausa, Prossimo, ±minuti, anteprima del palco e messaggi), mentre scaletta, orari dell'evento, importazione e aiuto stanno nel pannello **Modifica** (pulsante in alto o tasto E; Esc lo chiude). La scelta resta salvata sul dispositivo; si può anche aprire direttamente con `?ui=2` (e tornare alla classica con `?ui=1`).
+
 ## CSS
 
 Gli stili Tailwind sono precompilati in `app.css`. Se aggiungi o cambi classi in `index.html`, rigenera il file:

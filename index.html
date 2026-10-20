@@ -111,6 +111,180 @@
     #schedule-tbody input.dur-part { width: 2.6rem; font-size: 16px; padding: 6px 0; background: #f3f4f6; }
     #schedule-tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #9ca3af; }
   }
+
+  /* ---------------- Interfaccia v2 (in prova) ---------------- */
+  #v2-root { display: none; }
+  body.ui-v2 { background: #0b0d13; color: #e9ecf3; }
+  body.ui-v2 #v2-root { display: block; }
+  body.ui-v2 #dashboard-root > header, body.ui-v2 #dashboard-root > main, body.ui-v2 #dashboard-root > footer { display: none; }
+  body.ui-v2 ::-webkit-scrollbar-thumb { background: #2a3142; }
+  .v2 { --v2-panel: #12161f; --v2-panel2: #1a1f2b; --v2-line: #232a39; --v2-mut: #868fa2; --v2-dim: #555d70; }
+  .v2 .hidden { display: none !important; }
+  .v2 svg { flex-shrink: 0; }
+  .v2-top { position: sticky; top: 0; z-index: 30; display: flex; align-items: center; gap: 14px; height: 64px; padding: 0 32px; background: #0b0d13; }
+  .v2-logo { height: 32px; width: auto; max-width: 120px; object-fit: contain; }
+  .v2-title { font-weight: 600; font-size: 16px; color: var(--v2-mut); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+  .v2-sp { flex: 1; }
+  .v2-chip { font-size: 13px; font-weight: 600; padding: 5px 11px; border-radius: 999px; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; background: rgba(255,255,255,.08); color: #b8bfcc; }
+  .v2-chip.late { background: rgba(239,68,68,.14); color: #fca5a5; }
+  .v2-chip.recovered { background: rgba(245,158,11,.14); color: #fcd34d; }
+  .v2-chip.early { background: rgba(52,211,153,.14); color: #6ee7b7; }
+  .v2-clock { font-size: 18px; color: var(--v2-mut); }
+  .v2-ib, .v2-header-slot > button { width: 40px; height: 40px; border-radius: 10px; display: inline-grid; place-items: center; color: var(--v2-mut); padding: 0; }
+  .v2-ib:hover, .v2-header-slot > button:hover { background: var(--v2-panel2); color: #fff; }
+  .v2-ib svg { width: 20px; height: 20px; }
+  .v2-header-slot { display: inline-flex; gap: 2px; }
+  .v2-menu-wrap { position: relative; }
+  .v2-menu { position: absolute; right: 0; top: 46px; z-index: 40; min-width: 190px; padding: 6px; border-radius: 12px; background: var(--v2-panel2); border: 1px solid var(--v2-line); box-shadow: 0 16px 40px rgba(0,0,0,.5); display: flex; flex-direction: column; }
+  .v2-menu button { text-align: left; font-size: 14px; font-weight: 600; padding: 10px 12px; border-radius: 8px; color: #e9ecf3; }
+  .v2-menu button:hover { background: rgba(255,255,255,.07); }
+  .v2-edit { display: inline-flex; align-items: center; gap: 8px; height: 40px; padding: 0 16px; border-radius: 10px; border: 1px solid var(--v2-line); font-weight: 600; font-size: 14px; color: #e9ecf3; white-space: nowrap; }
+  .v2-edit:hover { border-color: #3a4256; }
+  .v2-edit svg { width: 16px; height: 16px; }
+  .v2-edit.on { background: #E8A33D; border-color: #E8A33D; color: #1a1205; }
+
+  .v2-wrap { display: grid; grid-template-columns: minmax(0,1fr) minmax(420px, 600px); gap: 56px; padding: 12px 56px 40px; }
+  .v2-lbl { font-size: 13px; font-weight: 700; letter-spacing: .12em; display: flex; align-items: center; gap: 10px; color: var(--v2-mut); }
+  .v2-dot { width: 9px; height: 9px; border-radius: 50%; background: currentColor; }
+  .v2-lbl.on { color: #34d399; } .v2-lbl.on .v2-dot { box-shadow: 0 0 0 5px rgba(52,211,153,.16); }
+  .v2-lbl.paused { color: #fbbf24; }
+  .v2-name { font-size: clamp(26px, 2.6vw, 46px); font-weight: 700; letter-spacing: -.01em; margin-top: 14px; line-height: 1.15; overflow-wrap: anywhere; }
+  .v2-timer-box { margin-top: 6px; }
+  .v2-timer { font-size: clamp(96px, 12vw, 230px); line-height: .95; font-weight: 700; letter-spacing: -.03em; color: rgba(255,255,255,.55); white-space: nowrap; cursor: default; }
+  .v2-timer.can-edit { cursor: pointer; }
+  .v2-timer .z { color: #fff; opacity: .13; }
+  .v2-timer.ok { color: #34d399; } .v2-timer.warn { color: #fbbf24; } .v2-timer.over { color: #ef4444; }
+  .v2-timer-box #onair-timer-input { width: 100%; max-width: 760px; font-size: clamp(72px, 9vw, 170px); line-height: 1.1; margin: 0; padding: 0 .15em; }
+  .v2-bar { height: 6px; border-radius: 9px; background: #1c2230; margin-top: 22px; overflow: hidden; }
+  .v2-bar i { display: block; height: 100%; width: 0; background: #34d399; transition: width .25s linear; }
+  .v2-meta { display: flex; justify-content: space-between; gap: 16px; color: var(--v2-dim); font-size: 14px; margin-top: 10px; min-height: 20px; }
+  .v2-acts { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; margin-top: 28px; }
+  .v2-big { display: inline-flex; align-items: center; gap: 10px; height: 58px; padding: 0 28px; border-radius: 14px; font-weight: 700; font-size: 18px; background: var(--v2-panel2); color: #e9ecf3; transition: background .15s; }
+  .v2-big:hover:not(:disabled) { background: #232a39; }
+  .v2-big:disabled { opacity: .3; cursor: not-allowed; }
+  .v2-big svg { width: 20px; height: 20px; }
+  .v2-big-play { background: #34d399; color: #062b1e; }
+  .v2-big-play:hover:not(:disabled) { background: #6ee7b7; }
+  .v2-big-play.pause { background: #fde047; color: #1a1605; }
+  .v2-big-play.pause:hover { background: #fef08a; }
+  .v2-adj { display: inline-flex; gap: 2px; margin-left: 6px; }
+  .v2-adj button { font-size: 15px; font-weight: 600; color: var(--v2-mut); padding: 10px 12px; border-radius: 10px; }
+  .v2-adj button:hover { background: var(--v2-panel2); color: #fff; }
+
+  .v2-list { list-style: none; margin: 40px 0 0; padding: 10px 0 0; border-top: 1px solid var(--v2-line); }
+  .v2-list li { display: grid; grid-template-columns: 110px minmax(0,1fr) 90px; align-items: center; gap: 12px; min-height: 48px; padding: 4px; font-size: 18px; color: var(--v2-mut); }
+  .v2-list .t { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px; color: var(--v2-dim); font-variant-numeric: tabular-nums; }
+  .v2-list .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .v2-list .d { text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px; color: var(--v2-dim); }
+  .v2-list .fx { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #a78bfa; margin-left: 10px; }
+  .v2-list li.done { opacity: .35; }
+  .v2-list li.skipped .n { text-decoration: line-through; }
+  .v2-list li.cur { color: #fff; font-weight: 600; }
+  .v2-list li.cur .t { color: #34d399; }
+  .v2-list li.nx { color: #e9ecf3; }
+  .v2-list .empty { display: block; color: var(--v2-dim); font-size: 15px; padding: 18px 4px; }
+  .v2-list .empty button { color: #E8A33D; font-weight: 600; }
+
+  .v2-right { display: flex; flex-direction: column; gap: 34px; padding-top: 6px; min-width: 0; }
+  .v2-cap { font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--v2-dim); margin-bottom: 12px; display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .v2-tabs { display: inline-flex; gap: 2px; background: var(--v2-panel); border-radius: 9px; padding: 3px; letter-spacing: 0; }
+  .v2-ptab { font-size: 12px; font-weight: 600; padding: 5px 11px; border-radius: 7px; color: var(--v2-mut); }
+  .v2-ptab.on { background: var(--v2-panel2); color: #fff; }
+  .v2-screen { position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #000; border: 1px solid var(--v2-line); }
+  .v2-msg-slot #stage-msg-block { border: 0; padding: 0; margin: 0; }
+  .v2-msg-slot #stage-msg-block > div:first-child > p:first-child { font-size: 12px; font-weight: 700; letter-spacing: .12em; color: var(--v2-dim); }
+  .v2-msg-slot #stage-msg-block > div:first-child { margin-bottom: 12px; }
+  .v2-msg-slot .stage-msg-quick { font-size: 15px; padding: 11px 16px; border-radius: 12px; background: var(--v2-panel2); }
+  .v2-msg-slot .stage-msg-quick.bg-yellow-300 { background: #fde047; color: #1a1605; }
+  .v2-msg-slot #stage-msg-block > div:nth-child(2) { gap: 10px; margin-bottom: 12px; }
+  .v2-msg-slot #stage-msg-input { height: 50px; border-radius: 12px; font-size: 15px; background: transparent; border-color: var(--v2-line); }
+  .v2-msg-slot #stage-msg-form button { border-radius: 12px; padding: 0 16px; }
+
+  /* Pannello Modifica: la diretta resta visibile a sinistra. */
+  .v2-backdrop { position: fixed; inset: 0; z-index: 35; background: rgba(0,0,0,.35); }
+  .v2-drawer { position: fixed; right: 0; top: 0; bottom: 0; z-index: 40; width: min(900px, 100vw); background: var(--v2-panel); border-left: 1px solid var(--v2-line); box-shadow: -30px 0 60px rgba(0,0,0,.45); display: flex; flex-direction: column; }
+  .v2-dh { display: flex; align-items: center; gap: 10px; padding: 18px 24px 0; }
+  .v2-dh h2 { font-size: 18px; font-weight: 700; }
+  .v2-dh-note { font-size: 13px; color: var(--v2-dim); }
+  .v2-close { font-size: 14px; font-weight: 600; color: var(--v2-mut); padding: 8px 10px; border-radius: 8px; }
+  .v2-close:hover { background: var(--v2-panel2); color: #fff; }
+  .v2-dtabs { display: flex; gap: 4px; padding: 0 24px; margin-top: 14px; border-bottom: 1px solid var(--v2-line); }
+  .v2-dtab { font-size: 14px; font-weight: 600; color: var(--v2-mut); padding: 10px 14px; border-bottom: 2px solid transparent; margin-bottom: -1px; }
+  .v2-dtab.on { color: #fff; border-color: #E8A33D; }
+  .v2-dbody { flex: 1; overflow-y: auto; padding: 16px 24px 28px; }
+  .v2-pane { display: none; } .v2-pane.on { display: block; }
+  .v2-tools { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+  .v2-field-lbl { display: block; font-size: 11px; font-weight: 700; letter-spacing: .08em; color: var(--v2-dim); text-transform: uppercase; margin-bottom: 6px; }
+  .v2-title-slot { margin-bottom: 20px; }
+  .v2-title-slot #event-title-input { font-size: 18px; padding: 8px 12px; border: 1px solid var(--v2-line); border-radius: 10px; background: #0e1219; }
+
+  /* I blocchi della v1 dentro il pannello: stesse funzioni, colori scuri. */
+  .v2-drawer section, .v2-drawer details { background: transparent !important; border: 0 !important; border-radius: 0 !important; box-shadow: none !important; padding-left: 0 !important; padding-right: 0 !important; }
+  .v2-drawer #schedule-section > div:first-child { padding: 0 0 12px; border: 0; }
+  .v2-drawer #schedule-section h2, .v2-drawer #schedule-section > div:first-child > div:first-child { display: none; }
+  .v2-drawer #schedule-section > div:first-child { justify-content: flex-start; }
+  .v2-drawer #schedule-table { min-width: 0; }
+  .v2-drawer #schedule-table th:nth-child(1), .v2-drawer #schedule-table td.c-num,
+  .v2-drawer #schedule-table th:nth-child(7), .v2-drawer #schedule-table td.c-status,
+  .v2-drawer #schedule-table th:nth-child(8), .v2-drawer #schedule-table td.c-eff { display: none; }
+  .v2-drawer #schedule-tbody tr { background: transparent !important; border-color: #1b2130 !important; }
+  .v2-drawer #schedule-tbody tr.bg-amber-50\/60 { background: rgba(52,211,153,.08) !important; }
+  .v2-drawer #schedule-tbody tr.bg-gray-50\/60 { opacity: .45; }
+  .v2-drawer thead tr { border-color: var(--v2-line) !important; color: var(--v2-dim); }
+  .v2-drawer input[type="text"], .v2-drawer input[type="time"], .v2-drawer select { color: #e9ecf3 !important; }
+  .v2-drawer #schedule-tbody input { background: #0e1219; border: 1px solid var(--v2-line); padding-top: 6px; padding-bottom: 6px; }
+  .v2-drawer #schedule-tbody input.dur-part { border-radius: 0; border-left: 0; border-right: 0; }
+  .v2-drawer #schedule-tbody input.dur-part[data-action="edit-dur-h"] { border-left: 1px solid var(--v2-line); border-radius: 6px 0 0 6px; }
+  .v2-drawer #schedule-tbody input.dur-part[data-action="edit-dur-s"] { border-right: 1px solid var(--v2-line); border-radius: 0 6px 6px 0; }
+  .v2-drawer #schedule-tbody .dur-part + span, .v2-drawer #schedule-tbody span.text-gray-300 { background: #0e1219; border-top: 1px solid var(--v2-line); border-bottom: 1px solid var(--v2-line); padding: 6px 0; line-height: 1.25rem; font-size: .875rem; color: var(--v2-dim); }
+  .v2-drawer #schedule-tbody input:focus { background: #151b26 !important; }
+  .v2-drawer .text-gray-900, .v2-drawer .text-gray-800, .v2-drawer .text-gray-700 { color: #e9ecf3 !important; }
+  .v2-drawer .text-gray-600, .v2-drawer .text-gray-500 { color: var(--v2-mut) !important; }
+  .v2-drawer .text-gray-400 { color: var(--v2-dim) !important; }
+  .v2-drawer .hover\:bg-gray-100:hover { background: var(--v2-panel2) !important; }
+  .v2-drawer .hover\:text-ink:hover { color: #fff !important; }
+  .v2-drawer .bg-sky-50 { background: rgba(56,189,248,.12) !important; color: #7dd3fc !important; }
+  .v2-drawer .bg-violet-50 { background: rgba(167,139,250,.14) !important; color: #c4b5fd !important; }
+  .v2-drawer #add-row-btn { background: #E8A33D; color: #1a1205; }
+  .v2-drawer .border-gray-100, .v2-drawer .border-gray-200 { border-color: var(--v2-line) !important; }
+  .v2-drawer label.border-dashed { border-color: #323a4c !important; }
+  .v2-drawer #import-panel > summary { display: none; }
+  .v2-drawer #import-panel > div { padding-left: 0; padding-right: 0; }
+  .v2-drawer #import-panel > div:first-of-type { border-top: 0 !important; padding-top: 0; }
+  .v2-drawer #import-key-box { background: rgba(232,163,61,.08) !important; border-color: rgba(232,163,61,.3) !important; color: #fcd9a1 !important; }
+  .v2-drawer #help-section { font-size: 14px; }
+  .v2-drawer #help-section h2 { display: none; }
+  .v2-drawer #event-time-panel { padding-top: 0 !important; }
+  .v2-tools button { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 600; padding: 9px 12px; border-radius: 9px; background: var(--v2-panel2) !important; color: #E8A33D !important; margin: 0 !important; }
+  .v2-tools button:hover { background: #232a39 !important; }
+
+  @media (max-width: 1023px) {
+    .v2-top { padding: 0 14px; gap: 8px; height: 56px; }
+    .v2-clock { display: none; }
+    .v2-chip { font-size: 12px; padding: 4px 9px; }
+    .v2-edit { padding: 0 12px; }
+    /* Sul telefono i messaggi stanno tra i comandi e la scaletta. */
+    .v2-wrap { display: flex; flex-direction: column; gap: 0; padding: 8px 16px 32px; }
+    .v2-live { display: contents; }
+    .v2-preview-wrap { display: none; }
+    .v2-right { order: 1; padding-top: 28px; }
+    .v2-list { order: 2; }
+    .v2-timer { font-size: 26vw; }
+    .v2-acts { gap: 10px; margin-top: 20px; }
+    .v2-big { height: 52px; padding: 0 20px; font-size: 16px; flex: 1 1 auto; justify-content: center; }
+    .v2-adj { width: 100%; justify-content: center; margin: 0; }
+    .v2-list { margin-top: 28px; }
+    .v2-list li { grid-template-columns: 64px minmax(0,1fr) 64px; font-size: 16px; min-height: 44px; }
+    .v2-list .t, .v2-list .d { font-size: 13px; }
+    .v2-dh { padding: 14px 16px 0; } .v2-dtabs { padding: 0 12px; } .v2-dbody { padding: 14px 16px 24px; }
+  }
+  @media (max-width: 520px) {
+    .v2-title { display: none; }
+    .v2-top { gap: 4px; padding: 0 10px; }
+    #v2-edit-label { display: none; }
+    .v2-edit { width: 40px; padding: 0; justify-content: center; }
+    .v2-ib, .v2-header-slot > button { width: 36px; }
+  }
 </style>
 </head>
 <body class="bg-gray-50 text-gray-900 antialiased">
@@ -119,6 +293,98 @@
 <!-- DASHBOARD DI REGIA                                            -->
 <!-- ============================================================ -->
 <div id="dashboard-root">
+
+  <!-- Interfaccia v2 (in prova): solo la diretta in vista, gli strumenti nel pannello Modifica.
+       Riusa i controlli della v1, che all'avvio vengono spostati qui dentro. -->
+  <div id="v2-root" class="v2">
+    <header class="v2-top">
+      <img id="v2-logo" src="" alt="" class="v2-logo hidden" />
+      <span id="v2-title" class="v2-title"></span>
+      <span class="v2-sp"></span>
+      <span id="v2-delay" class="v2-chip"></span>
+      <span id="v2-clock" class="v2-clock font-mono-time">--:--:--</span>
+      <div class="v2-menu-wrap">
+        <button id="v2-screens-btn" type="button" class="v2-ib" title="Apri Stage e Countdown" aria-label="Schermi" aria-haspopup="true" aria-expanded="false">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/></svg>
+        </button>
+        <div id="v2-screens-menu" class="v2-menu hidden" role="menu">
+          <button type="button" data-open="stage" role="menuitem">Apri Stage</button>
+          <button type="button" data-open="countdown" role="menuitem">Apri Countdown</button>
+          <button type="button" data-open="both" role="menuitem">Apri entrambi</button>
+        </div>
+      </div>
+      <span id="v2-header-slot" class="v2-header-slot"></span>
+      <button id="v2-edit-btn" type="button" class="v2-edit" aria-expanded="false" title="Modifica scaletta, orari e importazione (E)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9l-4-4L4 16z"/></svg>
+        <span id="v2-edit-label">Modifica</span>
+      </button>
+    </header>
+
+    <div class="v2-wrap">
+      <main class="v2-live">
+        <div id="v2-status" class="v2-lbl"><span class="v2-dot"></span><span id="v2-status-text">IN ATTESA</span></div>
+        <p id="v2-name" class="v2-name font-display">Nessun intervento attivo</p>
+        <div id="v2-timer-box" class="v2-timer-box">
+          <div id="v2-timer" class="v2-timer font-mono-time" title="">00:00</div>
+        </div>
+        <div class="v2-bar"><i id="v2-bar"></i></div>
+        <div class="v2-meta"><span id="v2-meta-l"></span><span id="v2-meta-r"></span></div>
+        <div class="v2-acts">
+          <button id="v2-play" type="button" class="v2-big v2-big-play" title="Play / Pausa (barra spaziatrice)"></button>
+          <button id="v2-next" type="button" class="v2-big" title="Passa al prossimo intervento">
+            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5l9 7-9 7V5zM17 5h2v14h-2z"/></svg>Prossimo
+          </button>
+          <span id="v2-adj" class="v2-adj font-mono-time">
+            <button type="button" data-adjust="-60" title="Togli 1 minuto all'intervento in onda">−1</button>
+            <button type="button" data-adjust="60" title="Aggiungi 1 minuto all'intervento in onda">+1</button>
+            <button type="button" data-adjust="300" title="Aggiungi 5 minuti all'intervento in onda">+5</button>
+          </span>
+        </div>
+        <ol id="v2-list" class="v2-list"></ol>
+      </main>
+
+      <aside class="v2-right">
+        <div id="v2-preview" class="v2-preview-wrap">
+          <div class="v2-cap"><span>SUL PALCO</span>
+            <span class="v2-tabs" role="tablist">
+              <button type="button" class="v2-ptab" data-query="?stage=1&amp;embed=1" role="tab">Stage</button>
+              <button type="button" class="v2-ptab" data-query="?countdown=1&amp;embed=1" role="tab">Countdown</button>
+            </span>
+          </div>
+          <div class="preview-box v2-screen"><iframe id="v2-frame" class="preview-frame" title="Anteprima" tabindex="-1" aria-hidden="true"></iframe></div>
+        </div>
+        <div id="v2-msg-slot" class="v2-msg-slot"></div>
+      </aside>
+    </div>
+
+    <div id="v2-backdrop" class="v2-backdrop hidden"></div>
+    <section id="v2-drawer" class="v2-drawer hidden" aria-label="Modifica">
+      <div class="v2-dh">
+        <h2 class="font-display">Modifica</h2><span class="v2-dh-note">la diretta continua</span>
+        <span class="v2-sp"></span>
+        <button id="v2-drawer-close" type="button" class="v2-close">Chiudi ✕</button>
+      </div>
+      <div class="v2-dtabs" role="tablist">
+        <button type="button" class="v2-dtab" data-tab="scaletta" role="tab">Scaletta</button>
+        <button type="button" class="v2-dtab" data-tab="evento" role="tab">Evento</button>
+        <button type="button" class="v2-dtab" data-tab="importa" role="tab">Importa</button>
+        <button type="button" class="v2-dtab" data-tab="aiuto" role="tab">Aiuto</button>
+      </div>
+      <div class="v2-dbody">
+        <div class="v2-pane" data-pane="scaletta">
+          <div id="v2-tools" class="v2-tools"></div>
+          <div id="v2-schedule-slot"></div>
+        </div>
+        <div class="v2-pane" data-pane="evento">
+          <label class="v2-field-lbl" for="event-title-input">Titolo evento</label>
+          <div id="v2-title-slot" class="v2-title-slot"></div>
+          <div id="v2-time-slot"></div>
+        </div>
+        <div class="v2-pane" data-pane="importa"><div id="v2-import-slot"></div></div>
+        <div class="v2-pane" data-pane="aiuto"><div id="v2-help-slot"></div></div>
+      </div>
+    </section>
+  </div>
 
   <header class="sm:sticky sm:top-0 z-30 bg-ink text-white border-b border-white/10">
     <div class="max-w-5xl xl:max-w-[1800px] mx-auto px-4 sm:px-6 py-3 flex items-center gap-3 sm:gap-4">
@@ -222,7 +488,7 @@
           </button>
         </div>
 
-        <div class="border-t border-white/10 pt-3 mb-3">
+        <div id="stage-msg-block" class="border-t border-white/10 pt-3 mb-3">
           <div class="flex items-center justify-between gap-2 mb-2">
             <p class="text-xs font-semibold tracking-wide text-white/60">MESSAGGIO AL RELATORE</p>
             <p id="stage-msg-current" class="hidden text-xs font-semibold text-ink bg-yellow-300 rounded px-2 py-0.5 truncate max-w-[60%]"></p>
@@ -257,7 +523,7 @@
       </section>
 
       <!-- Tabella scaletta -->
-      <section class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <section id="schedule-section" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-gray-100">
           <div>
             <h2 class="font-display text-base font-semibold text-gray-900">Scaletta</h2>
@@ -340,7 +606,7 @@
       </section>
 
       <!-- Info -->
-      <section class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 text-xs text-gray-500 leading-relaxed">
+      <section id="help-section" class="bg-white rounded-xl border border-gray-200 p-4 sm:p-5 text-xs text-gray-500 leading-relaxed">
         <h2 class="font-display text-sm font-semibold text-gray-900 mb-2">Come funziona</h2>
         <ul class="list-disc pl-4 space-y-1">
           <li>Carica la scaletta (PDF o foto) oppure aggiungi le righe a mano. Durata, inizio e fine di ogni riga si possono modificare: le righe successive si spostano, quelle prima restano come sono.</li>
@@ -535,6 +801,15 @@
     <div class="px-5 py-4 space-y-5">
 
       <div>
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Interfaccia</h3>
+        <p class="text-xs text-gray-500 mb-2">La versione 2, in prova, mostra solo la diretta: scaletta, orari e importazione si aprono con il pulsante Modifica (o il tasto E). Le funzioni sono le stesse.</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button" class="ui-choice text-xs font-semibold border border-gray-200 hover:border-accent px-3 py-2 rounded-lg transition-colors" data-ui="1">Classica</button>
+          <button type="button" class="ui-choice text-xs font-semibold border border-gray-200 hover:border-accent px-3 py-2 rounded-lg transition-colors" data-ui="2">Versione 2 (in prova)</button>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4">
         <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Logo</h3>
         <p class="text-xs text-gray-500 mb-2">Usato come logo nella dashboard e nello Stage Display. L'icona dell'app resta quella di Regia Tempi.</p>
         <div class="flex items-center gap-3">
@@ -2170,6 +2445,7 @@ function renderDashboard(){
   updateFinishEstimate();
   updateTimeline();
   renderScheduleTable();
+  if(isV2){ renderV2(); }
 }
 
 // Stima della fine reale, in minuti dalla mezzanotte (condivisa con il Countdown).
@@ -2387,6 +2663,7 @@ function tickDashboard(){
   updateDelayPill(getLiveDelaySeconds());
   updateFinishEstimate();
   updateTimeline();
+  if(isV2){ tickV2(); }
 }
 
 // Barra gialla: tempo trascorso sull'intera scaletta (i conclusi con la loro
@@ -3037,6 +3314,9 @@ function applyImportedItems(items){
 // Il menù di importazione resta aperto solo finché la scaletta è vuota.
 function setImportPanelOpen(open){
   var panel = document.getElementById('import-panel');
+  // Nella v2 l'importazione ha la sua scheda in Modifica: resta aperta, e a import
+  // concluso si passa alla scheda Scaletta.
+  if(isV2){ if(!open && v2DrawerOpen()){ v2ShowTab('scaletta'); } open = true; }
   if(panel){ panel.open = open; }
 }
 
@@ -3584,6 +3864,270 @@ function setupPreviews(){
 }
 
 /* ---------------------------------------------------------------- */
+/* Interfaccia v2 (in prova)                                          */
+/* ---------------------------------------------------------------- */
+// In vista solo la diretta; scaletta, orari, importazione e aiuto stanno nel
+// pannello Modifica. Si sceglie nelle impostazioni oppure con ?ui=2 / ?ui=1
+// nell'indirizzo; la scelta resta salvata su questo dispositivo.
+var LS_UI_KEY = 'rtl_ui_v1';
+function loadUiVersion(){
+  var fromUrl = params.get('ui');
+  if(fromUrl === '1' || fromUrl === '2'){
+    try{ localStorage.setItem(LS_UI_KEY, fromUrl); }catch(e){}
+    return fromUrl;
+  }
+  try{ return localStorage.getItem(LS_UI_KEY) === '2' ? '2' : '1'; }catch(e){ return '1'; }
+}
+var isV2 = !isStage && !isCountdown && loadUiVersion() === '2';
+function setUiVersion(v){
+  try{ localStorage.setItem(LS_UI_KEY, v); }catch(e){}
+  var url = new URL(window.location.href);
+  url.searchParams.delete('ui');
+  window.location.replace(url.toString());
+}
+function wireUiSwitch(){
+  Array.prototype.forEach.call(document.querySelectorAll('.ui-choice'), function(btn){
+    var active = btn.dataset.ui === (isV2 ? '2' : '1');
+    btn.classList.toggle('bg-ink', active);
+    btn.classList.toggle('text-white', active);
+    btn.addEventListener('click', function(){ if(!active){ setUiVersion(btn.dataset.ui); } });
+  });
+}
+
+var v2Tab = 'scaletta';
+var v2ListHtml = '';
+var v2TimerHtmlLast = '';
+function v2ShowTab(tab){
+  v2Tab = tab;
+  Array.prototype.forEach.call(document.querySelectorAll('.v2-dtab'), function(b){ b.classList.toggle('on', b.dataset.tab === tab); });
+  Array.prototype.forEach.call(document.querySelectorAll('.v2-pane'), function(p){ p.classList.toggle('on', p.dataset.pane === tab); });
+}
+function v2DrawerOpen(){ return !document.getElementById('v2-drawer').classList.contains('hidden'); }
+function v2SetDrawer(open, tab){
+  document.getElementById('v2-drawer').classList.toggle('hidden', !open);
+  document.getElementById('v2-backdrop').classList.toggle('hidden', !open);
+  var btn = document.getElementById('v2-edit-btn');
+  btn.classList.toggle('on', open);
+  btn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  document.getElementById('v2-edit-label').textContent = open ? 'Fine modifica' : 'Modifica';
+  if(tab){ v2ShowTab(tab); }
+}
+// Gli zeri iniziali del timer restano in vista ma attenuati: l'occhio va subito alle cifre che contano.
+function v2TimerHtml(text){
+  var m = /^([+\-−]?)([0:]*)(.*)$/.exec(text);
+  var sign = m[1], zeros = m[2], rest = m[3];
+  if(!rest){ rest = zeros.slice(-1); zeros = zeros.slice(0, -1); }
+  return sign + (zeros ? '<span class="z">' + zeros + '</span>' : '') + rest;
+}
+
+function setupV2(){
+  document.body.classList.add('ui-v2');
+  function move(id, slotId){
+    var el = document.getElementById(id), slot = document.getElementById(slotId);
+    if(el && slot){ slot.appendChild(el); }
+  }
+  move('stage-msg-block', 'v2-msg-slot');
+  move('schedule-section', 'v2-schedule-slot');
+  move('autobalance-btn', 'v2-tools');
+  move('event-title-input', 'v2-title-slot');
+  move('event-time-panel', 'v2-time-slot');
+  move('import-panel', 'v2-import-slot');
+  move('help-section', 'v2-help-slot');
+  move('share-btn', 'v2-header-slot');
+  move('settings-btn', 'v2-header-slot');
+  move('onair-timer-input', 'v2-timer-box');
+  document.getElementById('import-panel').open = true;
+
+  document.getElementById('v2-play').addEventListener('click', function(){
+    if(state.running){ actionPause(); } else { actionPlay(); }
+  });
+  document.getElementById('v2-next').addEventListener('click', actionNext);
+  document.getElementById('v2-adj').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-adjust]');
+    if(btn){ adjustCurrentTime(parseInt(btn.dataset.adjust, 10)); }
+  });
+  document.getElementById('v2-timer').addEventListener('click', startTimerEdit);
+
+  document.getElementById('v2-edit-btn').addEventListener('click', function(){
+    v2SetDrawer(!v2DrawerOpen(), v2DrawerOpen() ? null : (state.schedule.length ? v2Tab : 'importa'));
+  });
+  document.getElementById('v2-drawer-close').addEventListener('click', function(){ v2SetDrawer(false); });
+  document.getElementById('v2-backdrop').addEventListener('click', function(){ v2SetDrawer(false); });
+  Array.prototype.forEach.call(document.querySelectorAll('.v2-dtab'), function(b){
+    b.addEventListener('click', function(){ v2ShowTab(b.dataset.tab); });
+  });
+  document.getElementById('v2-list').addEventListener('click', function(e){
+    var btn = e.target.closest('[data-v2-open]');
+    if(btn){ v2SetDrawer(true, btn.dataset.v2Open); }
+  });
+  v2ShowTab(v2Tab);
+
+  // Menu "Schermi": apre Stage, Countdown o entrambi nelle loro finestre.
+  var screensBtn = document.getElementById('v2-screens-btn');
+  var screensMenu = document.getElementById('v2-screens-menu');
+  function setMenu(open){
+    screensMenu.classList.toggle('hidden', !open);
+    screensBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+  }
+  screensBtn.addEventListener('click', function(e){ e.stopPropagation(); setMenu(screensMenu.classList.contains('hidden')); });
+  screensMenu.addEventListener('click', function(e){
+    var btn = e.target.closest('[data-open]');
+    if(!btn) return;
+    setMenu(false);
+    var open = btn.dataset.open;
+    if(open === 'stage'){ openStage(); } else if(open === 'countdown'){ openCountdown(); } else { openBoth(); }
+  });
+  document.addEventListener('click', function(e){ if(!e.target.closest('.v2-menu-wrap')){ setMenu(false); } });
+
+  // E apre e chiude Modifica, Esc lo chiude (fuori dai campi di testo e dalle finestre di dialogo).
+  document.addEventListener('keydown', function(e){
+    if(e.ctrlKey || e.metaKey || e.altKey) return;
+    if(!document.getElementById('settings-modal').classList.contains('hidden')) return;
+    if(!document.getElementById('recover-modal').classList.contains('hidden')) return;
+    var t = e.target;
+    var typing = t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName));
+    if(e.key === 'Escape'){
+      if(!screensMenu.classList.contains('hidden')){ setMenu(false); return; }
+      // In un campo del pannello il primo Esc esce solo dal campo.
+      if(typing){ if(v2DrawerOpen() && t.closest('#v2-drawer')){ t.blur(); } return; }
+      if(v2DrawerOpen()){ v2SetDrawer(false); }
+    } else if((e.key === 'e' || e.key === 'E') && !typing && !e.repeat){
+      e.preventDefault();
+      v2SetDrawer(!v2DrawerOpen());
+    }
+  });
+
+  // Anteprima del palco: un solo riquadro, Stage o Countdown.
+  var frame = document.getElementById('v2-frame');
+  var base = window.location.href.split('#')[0].split('?')[0];
+  var mq = window.matchMedia ? window.matchMedia('(min-width: 1024px)') : null;
+  var previewQuery = '?stage=1&embed=1';
+  function fit(){
+    var w = frame.parentNode.clientWidth;
+    if(w){ frame.style.transform = 'scale(' + (w / 1920) + ')'; }
+  }
+  function sync(){
+    var on = !mq || mq.matches;
+    var want = on ? base + previewQuery : '';
+    if(want && frame.getAttribute('src') !== want){ frame.setAttribute('src', want); }
+    else if(!want && frame.getAttribute('src')){ frame.removeAttribute('src'); }
+    Array.prototype.forEach.call(document.querySelectorAll('.v2-ptab'), function(b){ b.classList.toggle('on', b.dataset.query === previewQuery); });
+    fit();
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.v2-ptab'), function(b){
+    b.addEventListener('click', function(){ previewQuery = b.dataset.query; sync(); });
+  });
+  if(mq){
+    if(mq.addEventListener){ mq.addEventListener('change', sync); }
+    else if(mq.addListener){ mq.addListener(sync); }
+  }
+  window.addEventListener('resize', fit);
+  sync();
+}
+
+function renderV2(){
+  var total = state.schedule.length;
+  var finished = state.currentIndex >= total && total > 0;
+  var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
+
+  document.getElementById('v2-title').textContent = state.eventTitle || '';
+  var logo = document.getElementById('v2-logo');
+  if(state.logo){ if(logo.getAttribute('src') !== state.logo){ logo.src = state.logo; } logo.classList.remove('hidden'); }
+  else { logo.classList.add('hidden'); }
+
+  var statusEl = document.getElementById('v2-status');
+  var statusText = finished ? 'TERMINATO' : (!cur ? 'IN ATTESA' : (state.running ? 'IN ONDA' : 'IN PAUSA'));
+  document.getElementById('v2-status-text').textContent = statusText;
+  statusEl.className = 'v2-lbl' + (cur ? (state.running ? ' on' : ' paused') : '');
+  document.getElementById('v2-name').textContent = finished ? 'Scaletta completata' : (cur ? cur.speaker : (total ? 'Nessun intervento attivo' : 'Scaletta vuota'));
+
+  var play = document.getElementById('v2-play');
+  play.innerHTML = state.running
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pausa'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play';
+  play.classList.toggle('pause', state.running);
+  play.disabled = !state.running && (total === 0 || finished);
+  document.getElementById('v2-next').disabled = total === 0 || finished;
+  document.getElementById('v2-adj').classList.toggle('hidden', !cur);
+  var timer = document.getElementById('v2-timer');
+  timer.classList.toggle('can-edit', !!cur);
+  timer.title = cur ? 'Clicca per scrivere il tempo rimanente' : '';
+
+  renderV2List(cur, finished);
+  tickV2();
+}
+
+function renderV2List(cur, finished){
+  var list = document.getElementById('v2-list');
+  var html;
+  if(state.schedule.length === 0){
+    html = '<li class="empty">La scaletta è vuota. <button type="button" data-v2-open="importa">Importa una scaletta</button> o aggiungi gli interventi da Modifica.</li>';
+  } else {
+    var cum = hhmmToMinutes(state.eventStart) * 60;
+    var nextIdx = cur ? state.currentIndex + 1 : (finished ? -1 : firstPendingIndex());
+    html = state.schedule.map(function(it, idx){
+      cum += itemGap(it);
+      var start = secondsToClock(cum);
+      cum += it.duration * 60;
+      var cls = it.status === 'done' ? 'done' : (isSkipped(it, idx) ? 'done skipped' : (idx === state.currentIndex ? 'cur' : (idx === nextIdx ? 'nx' : '')));
+      return '<li class="' + cls + '"><span class="t">' + start + '</span>' +
+        '<span class="n">' + escapeHtml(it.speaker) + (it.type === 'flex' ? '' : '<span class="fx">FISSO</span>') + '</span>' +
+        '<span class="d">' + formatSecondsSigned(it.duration * 60) + '</span></li>';
+    }).join('');
+  }
+  if(html !== v2ListHtml){ list.innerHTML = html; v2ListHtml = html; }
+}
+
+function tickV2(){
+  var total = state.schedule.length;
+  var finished = state.currentIndex >= total && total > 0;
+  var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
+  document.getElementById('v2-clock').textContent = document.getElementById('header-clock').textContent;
+
+  // Ritardo e fine stimata in un'unica pillola.
+  var chip = document.getElementById('v2-delay');
+  var delay = getLiveDelaySeconds();
+  var recovered = state.recoveredSeconds || 0;
+  var chipText, chipClass = 'v2-chip';
+  if(Math.abs(delay) < 60){ chipText = 'In orario'; }
+  else if(delay > 0){ chipText = 'Ritardo ' + formatSecondsDelay(delay); chipClass += recovered >= delay - 1 ? ' recovered' : ' late'; }
+  else { chipText = 'Anticipo ' + formatSecondsDelay(delay); chipClass += ' early'; }
+  if(total > 0 && !finished){ chipText += ' · fine ' + minutesToHHMM(computeLiveFinishMin()); }
+  chip.textContent = chipText;
+  chip.className = chipClass + (total === 0 ? ' hidden' : '');
+
+  var timer = document.getElementById('v2-timer');
+  var editing = !document.getElementById('onair-timer-input').classList.contains('hidden');
+  timer.classList.toggle('hidden', editing);
+  var text, color = '', blink = false, frac = 0, barColor = '#34d399';
+  var metaL = '', metaR = '';
+  if(cur){
+    var rem = getRemainingSeconds(state.currentIndex);
+    var dur = cur.duration * 60;
+    text = formatSecondsSigned(rem);
+    color = rem < 0 ? 'over' : (rem <= 120 ? 'warn' : 'ok');
+    blink = rem < 0 && state.running;
+    frac = dur > 0 ? Math.min(1, Math.max(0, 1 - rem / dur)) : 1;
+    barColor = rem < 0 ? '#ef4444' : (rem <= 120 ? '#fbbf24' : '#34d399');
+    metaL = rem < 0 ? 'fuori tempo di ' + formatTimer(-rem) : 'finisce alle ' + secondsToClock(nowSecondsSinceMidnight() + rem);
+    metaR = 'previsti ' + formatSecondsSigned(dur);
+  } else if(finished){
+    text = '00:00'; frac = 1; barColor = 'rgba(255,255,255,.25)';
+  } else {
+    text = total > 0 ? formatSecondsSigned(state.schedule[0].duration * 60) : '00:00';
+    if(total > 0){ metaL = 'si parte con ' + state.schedule[0].speaker + ' alle ' + secondsToClock(plannedStartSeconds(0)); }
+  }
+  var html = v2TimerHtml(text);
+  if(html !== v2TimerHtmlLast){ timer.innerHTML = html; v2TimerHtmlLast = html; }
+  timer.className = 'v2-timer font-mono-time' + (color ? ' ' + color : '') + (blink ? ' blink-red' : '') + (cur ? ' can-edit' : '') + (editing ? ' hidden' : '');
+  var bar = document.getElementById('v2-bar');
+  bar.style.width = (frac * 100) + '%';
+  bar.style.background = barColor;
+  document.getElementById('v2-meta-l').textContent = metaL;
+  document.getElementById('v2-meta-r').textContent = metaR;
+}
+
+/* ---------------------------------------------------------------- */
 /* Collegamento eventi                                                */
 /* ---------------------------------------------------------------- */
 function wireEvents(){
@@ -3887,7 +4431,8 @@ function init(){
   } else {
     document.getElementById('dashboard-root').classList.remove('hidden');
     setImportPanelOpen(state.schedule.length === 0);
-    setupPreviews();
+    if(isV2){ setupV2(); } else { setupPreviews(); }
+    wireUiSwitch();
     initScreens();
   }
 
