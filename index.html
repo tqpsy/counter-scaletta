@@ -71,6 +71,14 @@
   .disp-progress > div { height: 100%; width: 0; border-radius: inherit; background: #34d399; transition: width .25s linear; }
   .disp-msg { font-size: calc(var(--s) * clamp(1.5rem, min(5vw, 8vh), 6rem)); font-weight: 700; line-height: 1.1; color: #0b0b0b; background: #fde047; padding: .2em .6em; border-radius: .3em; max-width: 94vw; overflow-wrap: anywhere; }
   .disp-msg:empty { display: none; }
+  /* Scritta alla scadenza: compare sopra il tempo in negativo. */
+  .disp-over { font-size: calc(var(--s) * clamp(1.5rem, min(5vw, 8vh), 6rem)); font-weight: 700; line-height: 1.1; color: #ef4444; letter-spacing: .02em; max-width: 94vw; overflow-wrap: anywhere; }
+  .disp-over:empty { display: none; }
+  .disp-date { font-size: calc(var(--s) * clamp(0.8rem, min(1.5vw, 2.6vh), 2rem)); color: rgba(255,255,255,.5); }
+  /* Schermata d'attesa: l'orologio grande prende il posto del timer, quello piccolo sparisce. */
+  .disp-waiting #stage-clock { visibility: hidden; }
+  /* Zeri iniziali del timer attenuati: l'occhio va subito alle cifre che contano. */
+  .disp-timer .z, #onair-timer .z { opacity: .3; }
   @keyframes dispMsgFlash { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
   .disp-msg.disp-msg-new { animation: dispMsgFlash .6s ease-in-out 5; }
   @media (prefers-reduced-motion: reduce) { .disp-msg.disp-msg-new { animation: none; } }
@@ -196,7 +204,7 @@
   .v2-msg-slot #stage-msg-block > div:first-child { margin-bottom: 12px; }
   .v2-msg-slot .stage-msg-quick { font-size: 15px; padding: 11px 16px; border-radius: 12px; background: var(--v2-panel2); }
   .v2-msg-slot .stage-msg-quick.bg-yellow-300 { background: #fde047; color: #1a1605; }
-  .v2-msg-slot #stage-msg-block > div:nth-child(2) { gap: 10px; margin-bottom: 12px; }
+  .v2-msg-slot #stage-msg-quick-list { gap: 10px; margin-top: 12px; }
   .v2-msg-slot #stage-msg-input { height: 50px; border-radius: 12px; font-size: 15px; background: transparent; border-color: var(--v2-line); }
   .v2-msg-slot #stage-msg-form button { border-radius: 12px; padding: 0 16px; }
 
@@ -493,18 +501,14 @@
             <p class="text-xs font-semibold tracking-wide text-white/60">MESSAGGIO AL RELATORE</p>
             <p id="stage-msg-current" class="hidden text-xs font-semibold text-ink bg-yellow-300 rounded px-2 py-0.5 truncate max-w-[60%]"></p>
           </div>
-          <div class="flex flex-wrap gap-1.5 mb-2">
-            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Mancano 2 minuti">2 minuti</button>
-            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Accelera">Accelera</button>
-            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Concludi">Concludi</button>
-            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Ultima domanda">Ultima domanda</button>
-            <button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="Microfono">Microfono</button>
-          </div>
           <form id="stage-msg-form" class="flex items-stretch gap-2">
+            <button id="stage-msg-quick-toggle" type="button" aria-expanded="false" aria-controls="stage-msg-quick-list" title="Messaggi rapidi" class="shrink-0 inline-flex items-center gap-1 text-sm font-semibold bg-white/10 hover:bg-white/15 text-white px-3 rounded-lg transition-colors">Rapidi <svg viewBox="0 0 24 24" class="w-3.5 h-3.5 transition-transform" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg></button>
             <input id="stage-msg-input" type="text" maxlength="120" autocomplete="off" placeholder="Scrivi un messaggio…" class="min-w-0 flex-1 text-sm bg-white/10 text-white placeholder-white/40 rounded-lg px-3 py-2 border border-white/10" />
             <button type="submit" class="shrink-0 text-sm font-semibold bg-yellow-300 hover:bg-yellow-200 text-ink px-3 rounded-lg transition-colors">Invia</button>
             <button id="stage-msg-clear" type="button" disabled class="shrink-0 text-sm font-semibold bg-white/10 hover:bg-white/15 disabled:opacity-30 disabled:cursor-not-allowed text-white px-3 rounded-lg transition-colors">Togli</button>
           </form>
+          <!-- Messaggi rapidi: si usano poco, quindi restano chiusi finché non si apre "Rapidi". -->
+          <div id="stage-msg-quick-list" class="hidden flex flex-wrap gap-1.5 mt-2"></div>
         </div>
 
         <div class="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 text-xs text-white/50 border-t border-white/10 pt-3">
@@ -519,6 +523,27 @@
         <div id="onair-timeline-wrap" class="hidden absolute inset-x-0 bottom-0">
           <div class="h-[5px] bg-white/5"><div id="onair-tl-event" class="h-full bg-accent transition-[width] duration-300" style="width:0"></div></div>
           <div class="h-[5px] bg-white/5"><div id="onair-tl-item" class="h-full bg-emerald-400 transition-[width] duration-300" style="width:0"></div></div>
+        </div>
+      </section>
+
+      <!-- Orario evento: sopra la scaletta, così da telefono non serve scorrerla tutta; su PC viene spostato nella colonna di destra, sotto il Countdown. -->
+      <span id="event-time-home" class="hidden"></span>
+      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent px-4 py-3 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h2 class="text-xs font-semibold tracking-wide text-white/60">ORARIO EVENTO</h2>
+          <button id="apply-endtime-btn" type="button" title="Adatta la scaletta al nuovo orario di fine" class="shrink-0 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors">Adatta alla fine</button>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 text-xs text-white/50 min-w-0">Inizio
+            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="min-w-0 flex-1 text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2 py-1.5 focus:outline-none" />
+          </label>
+          <label class="flex items-center gap-2 text-xs text-white/50 min-w-0" title="Fine desiderata">Fine
+            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="min-w-0 flex-1 text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2 py-1.5 focus:outline-none" />
+          </label>
+        </div>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mt-2 text-xs text-white/50">
+          <p>Piano <span id="planned-finish" class="font-mono-time font-semibold text-white/80">--:--</span> · Stima <span id="live-finish-estimate" class="font-mono-time font-semibold text-white">--:--</span></p>
+          <p id="end-diff" class="text-xs text-white/50"></p>
         </div>
       </section>
 
@@ -573,36 +598,6 @@
             <tbody id="schedule-tbody"></tbody>
           </table>
         </div>
-      </section>
-
-      <!-- Orario evento: su PC viene spostato nella colonna di destra, sotto il Countdown. -->
-      <span id="event-time-home" class="hidden"></span>
-      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-6 xl:p-5 shadow-sm">
-        <h2 class="text-xs font-semibold tracking-wide text-white/60 mb-3">ORARIO EVENTO</h2>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-start-input">Inizio</label>
-            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-end-input">Fine desiderata</label>
-            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 mb-2">
-          <div>
-            <p class="text-xs text-white/50">Fine prevista (piano)</p>
-            <p id="planned-finish" class="font-mono-time text-2xl font-semibold text-white/80">--:--</p>
-          </div>
-          <div>
-            <p class="text-xs text-white/50">Stima fine reale</p>
-            <p id="live-finish-estimate" class="font-mono-time text-2xl font-semibold text-white">--:--</p>
-          </div>
-        </div>
-        <p id="end-diff" class="text-xs text-white/50 mb-4"></p>
-        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-          Adatta scaletta al nuovo orario di fine
-        </button>
       </section>
 
       <!-- Info -->
@@ -725,10 +720,12 @@
   <div class="hidden">
     <img id="stage-logo" src="" alt="Logo" class="disp-el disp-logo" data-el="logo" />
     <p id="stage-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
+    <p id="stage-date" class="disp-el disp-date" data-el="date"></p>
     <p id="stage-event-title" class="disp-el disp-title" data-el="title"></p>
     <p id="stage-status" class="disp-el disp-status" data-el="status"></p>
     <p id="stage-message" class="disp-el disp-msg font-display" data-el="message" role="status" aria-live="assertive"></p>
     <p id="stage-name" class="disp-el disp-name font-display" data-el="name">In attesa di inizio</p>
+    <p id="stage-overtime" class="disp-el disp-over font-display" data-el="overtime"></p>
     <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00</div>
     <div id="stage-progress" class="disp-el disp-progress" data-el="progress"><div id="stage-progress-bar"></div></div>
     <p id="stage-next" class="disp-el disp-sub" data-el="next"></p>
@@ -753,6 +750,7 @@
   <div class="hidden">
     <img id="countdown-logo" src="" alt="Logo" class="disp-el disp-logo" data-el="logo" />
     <p id="countdown-clock" class="disp-el disp-clock font-mono-time" data-el="clock">--:--:--</p>
+    <p id="countdown-date" class="disp-el disp-date" data-el="date"></p>
     <p id="countdown-event-title" class="disp-el disp-title disp-title-lg font-display" data-el="title"></p>
     <p id="countdown-status" class="disp-el disp-status text-accent" data-el="status"></p>
     <div id="countdown-timer" class="disp-el disp-timer font-mono-time text-accent" data-el="timer">00:00</div>
@@ -838,6 +836,36 @@
           <p class="text-xs text-gray-500 mb-2"><span id="desktop-version"></span> Gli aggiornamenti si scaricano da soli quando c'è internet.</p>
           <button id="desktop-update-btn" type="button" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors disabled:opacity-40">Cerca aggiornamenti</button>
           <p id="desktop-update-status" class="text-xs text-gray-500 mt-1.5"></p>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Avviso e scadenza</h3>
+        <label class="text-xs text-gray-500 block mb-1" for="warn-value">Il timer diventa giallo quando mancano</label>
+        <div class="flex flex-wrap items-center gap-2">
+          <input type="number" id="warn-value" min="0" step="1" inputmode="decimal" class="w-20 text-sm border border-gray-200 rounded-lg px-2.5 py-2 tabular-nums" />
+          <select id="warn-mode" aria-label="Unità della soglia" class="text-sm border border-gray-200 rounded-lg px-2.5 py-2">
+            <option value="min">minuti</option>
+            <option value="pct">% della durata</option>
+          </select>
+        </div>
+        <p id="warn-example" class="text-[11px] text-gray-400 mt-1.5"></p>
+        <label class="text-xs text-gray-500 block mt-3 mb-1" for="overtime-text">Scritta sullo Stage a tempo scaduto</label>
+        <input type="text" id="overtime-text" maxlength="40" placeholder="Tempo scaduto" class="w-full text-sm border border-gray-200 rounded-lg px-2.5 py-2" />
+        <p class="text-[11px] text-gray-400 mt-1.5">Compare sopra il tempo in negativo. Lasciala vuota per non mostrarla.</p>
+        <label class="flex items-start gap-2 text-sm text-gray-800 mt-3 cursor-pointer">
+          <input type="checkbox" id="wait-clock" class="w-4 h-4 mt-0.5 accent-[#E8A33D]" />
+          <span>Schermata d'attesa con orologio grande<span class="block text-[11px] text-gray-400">Sullo Stage, prima del primo intervento e a evento finito.</span></span>
+        </label>
+      </div>
+
+      <div id="settings-quick-section" class="border-t border-gray-100 pt-4">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Messaggi rapidi</h3>
+        <p class="text-xs text-gray-500 mb-2">Messaggi da mandare al relatore con un clic. Si aprono dal pulsante "Rapidi" accanto al campo del messaggio.</p>
+        <div id="quick-msg-rows" class="space-y-1.5"></div>
+        <div class="flex flex-wrap items-center gap-3 mt-2">
+          <button id="quick-msg-add" type="button" class="inline-flex items-center gap-1.5 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">+ Aggiungi messaggio</button>
+          <button id="quick-msg-reset" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Ripristina predefiniti</button>
         </div>
       </div>
 
@@ -1013,9 +1041,29 @@ function defaultState(){
     activeStartEpoch: null,
     recoveredSeconds: 0,
     stageMessage: '',
-    display: defaultDisplay()
+    display: defaultDisplay(),
+    // Soglia del timer giallo: in minuti o in percentuale della durata (si tengono entrambi i valori).
+    warn: { mode: 'min', min: 2, pct: 10 },
+    overtimeText: 'Tempo scaduto',
+    waitClock: true,
+    quickMessages: DEFAULT_QUICK_MESSAGES.slice()
   };
 }
+var DEFAULT_QUICK_MESSAGES = ['Mancano 2 minuti', 'Accelera', 'Concludi', 'Ultima domanda', 'Microfono'];
+function quickMessages(){
+  return Array.isArray(state.quickMessages) ? state.quickMessages : DEFAULT_QUICK_MESSAGES;
+}
+// Secondi prima della fine in cui il timer diventa giallo.
+function warnThresholdSeconds(it){
+  var w = state.warn || {};
+  if(w.mode === 'pct'){
+    var pct = Number(w.pct);
+    return Math.round(it.duration * 60 * (pct >= 0 ? Math.min(pct, 100) : 10) / 100);
+  }
+  var min = Number(w.min);
+  return Math.round((min >= 0 ? min : 2) * 60);
+}
+function timerZone(rem, it){ return rem < 0 ? 'over' : (rem <= warnThresholdSeconds(it) ? 'warn' : 'ok'); }
 
 /* ---------------------------------------------------------------- */
 /* Layout dei display (Stage e Countdown), modificabile dalle impostazioni */
@@ -1025,10 +1073,12 @@ var DISPLAY_ELEMENTS = {
   stage: [
     { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
+    { key: 'date', label: 'Data', show: true, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
     { key: 'message', label: 'Messaggio al relatore', show: true, pos: 'center', big: true },
     { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
+    { key: 'overtime', label: 'Scritta a tempo scaduto', show: true, pos: 'center', big: true },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
     { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
     { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
@@ -1036,6 +1086,7 @@ var DISPLAY_ELEMENTS = {
   countdown: [
     { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
+    { key: 'date', label: 'Data', show: false, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
@@ -1617,6 +1668,13 @@ function pad2(n){ return String(Math.floor(Math.abs(n))).padStart(2,'0'); }
 function formatTimer(totalSeconds){
   var s = Math.max(0, Math.round(totalSeconds));
   return s >= 3600 ? formatHMS(s) : pad2(Math.floor(s/60)) + ':' + pad2(s%60);
+}
+// Gli zeri iniziali del timer restano in vista ma attenuati: l'occhio va subito alle cifre che contano.
+function timerHtml(text){
+  var m = /^([+\-−]?)([0:]*)(.*)$/.exec(text);
+  var sign = m[1], zeros = m[2], rest = m[3];
+  if(!rest){ rest = zeros.slice(-1); zeros = zeros.slice(0, -1); }
+  return sign + (zeros ? '<span class="z">' + zeros + '</span>' : '') + rest;
 }
 function formatSecondsSigned(totalSeconds){
   return (totalSeconds < 0 ? '-' : '') + formatTimer(Math.abs(totalSeconds));
@@ -2350,12 +2408,18 @@ function setStageMessage(text){
   broadcastState();
   renderStageMessageControls();
 }
+var quickListHtml = '';
 function renderStageMessageControls(){
   var msg = state.stageMessage || '';
   var cur = document.getElementById('stage-msg-current');
   cur.textContent = msg ? 'Sullo Stage: ' + msg : '';
   cur.classList.toggle('hidden', !msg);
   document.getElementById('stage-msg-clear').disabled = !msg;
+  var list = document.getElementById('stage-msg-quick-list');
+  var html = quickMessages().filter(function(m){ return m && m.trim(); }).map(function(m){
+    return '<button type="button" class="stage-msg-quick text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors" data-msg="' + escapeHtml(m.trim()) + '">' + escapeHtml(m.trim()) + '</button>';
+  }).join('') + '<button type="button" data-quick-edit="1" title="Aggiungi, togli o riordina i messaggi rapidi" class="text-xs font-medium text-white/50 hover:text-white px-2 py-1.5 rounded-md transition-colors">Modifica elenco</button>';
+  if(html !== quickListHtml){ list.innerHTML = html; quickListHtml = html; }
   Array.prototype.forEach.call(document.querySelectorAll('.stage-msg-quick'), function(btn){
     var active = btn.dataset.msg === msg;
     btn.classList.toggle('bg-yellow-300', active);
@@ -2395,7 +2459,7 @@ function renderDashboard(){
     nameEl.textContent = 'Scaletta completata';
     statusEl.textContent = 'TERMINATO';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
-    timerEl.textContent = '00:00';
+    timerEl.innerHTML = timerHtml('00:00');
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = '—';
@@ -2404,7 +2468,7 @@ function renderDashboard(){
     nameEl.textContent = 'Nessun intervento attivo';
     statusEl.textContent = 'IN ATTESA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
-    timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
+    timerEl.innerHTML = timerHtml(total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
     setNextLine(nextEl, total > 0 ? state.schedule[0].speaker : '—', total > 0 ? 0 : -1);
@@ -2414,9 +2478,9 @@ function renderDashboard(){
     statusEl.textContent = state.running ? 'IN ONDA' : 'IN PAUSA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full ' + (state.running ? 'bg-emerald-400 animate-pulse' : 'bg-amber-400');
     var rem = getRemainingSeconds(state.currentIndex);
-    timerEl.textContent = formatSecondsSigned(rem);
+    timerEl.innerHTML = timerHtml(formatSecondsSigned(rem));
     var colorClass = 'text-emerald-400';
-    if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
+    if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= warnThresholdSeconds(cur)){ colorClass = 'text-amber-400'; }
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     typeBadgeEl.classList.remove('hidden');
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
@@ -2497,14 +2561,14 @@ function updateFinishEstimate(){
   if(total === 0 || state.currentIndex >= total){
     endDiffEl.textContent = '';
   } else if(Math.abs(endDiff) < 1){
-    endDiffEl.textContent = 'In linea con l\'orario di fine.';
-    endDiffEl.className = 'text-xs text-white/50 mb-4';
+    endDiffEl.textContent = 'In linea con la fine';
+    endDiffEl.className = 'text-xs text-white/50';
   } else if(endDiff < 0){
-    endDiffEl.textContent = 'Sforamento previsto di ' + hoursMinutesLabel(endDiff) + ' oltre la fine desiderata.';
-    endDiffEl.className = 'text-xs text-red-400 font-medium mb-4';
+    endDiffEl.textContent = 'Sfora di ' + hoursMinutesLabel(endDiff);
+    endDiffEl.className = 'text-xs text-red-400 font-medium';
   } else {
-    endDiffEl.textContent = 'Margine di ' + hoursMinutesLabel(endDiff) + ' prima della fine desiderata.';
-    endDiffEl.className = 'text-xs text-emerald-400 font-medium mb-4';
+    endDiffEl.textContent = 'Margine ' + hoursMinutesLabel(endDiff);
+    endDiffEl.className = 'text-xs text-emerald-400 font-medium';
   }
 }
 
@@ -2649,9 +2713,9 @@ function tickDashboard(){
   if(cur){
     var rem = getRemainingSeconds(state.currentIndex);
     var timerEl = document.getElementById('onair-timer');
-    timerEl.textContent = formatSecondsSigned(rem);
+    timerEl.innerHTML = timerHtml(formatSecondsSigned(rem));
     var colorClass = 'text-emerald-400';
-    if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
+    if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= warnThresholdSeconds(cur)){ colorClass = 'text-amber-400'; }
     timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     var effCell = document.querySelector('#schedule-tbody [data-eff="' + state.currentIndex + '"]');
     if(effCell){
@@ -2750,9 +2814,12 @@ function applyDisplayLayout(screen){
 }
 // Il timer si allarga fino a riempire lo schermo senza uscire dai bordi:
 // --chw è la larghezza del testo in "em" (circa 0,62 per carattere monospace).
-function setTimerText(el, text){
-  if(el.textContent !== text){
-    el.textContent = text;
+// Con plain (l'orologio dell'attesa) gli zeri non vengono attenuati.
+function setTimerText(el, text, plain){
+  var html = plain ? text : timerHtml(text);
+  if(el.dataset.html !== html){
+    el.dataset.html = html;
+    el.innerHTML = html;
     el.style.setProperty('--chw', (Math.max(text.length, 5) * 0.62).toFixed(2));
   }
 }
@@ -2762,7 +2829,8 @@ var midFitKey = '';
 function fitMiddle(screen){
   var mid = document.getElementById(screen + '-slot-center');
   var timer = document.getElementById(screen + '-timer');
-  var key = window.innerWidth + 'x' + window.innerHeight + '|' + timer.textContent.length + '|' + appliedLayoutKey + '|' + lastFitText + '|' + (state.stageMessage || '');
+  var over = document.getElementById(screen + '-overtime');
+  var key = window.innerWidth + 'x' + window.innerHeight + '|' + timer.textContent.length + '|' + appliedLayoutKey + '|' + lastFitText + '|' + (state.stageMessage || '') + '|' + (over ? over.textContent : '');
   if(key === midFitKey) return;
   midFitKey = key;
   var fit = 1;
@@ -2798,6 +2866,14 @@ function setClock(id){
   var clockEl = document.getElementById(id);
   if(clockEl){ clockEl.textContent = new Date(nowMs()).toLocaleTimeString('it-IT'); }
 }
+// "Mercoledì 21 ottobre"
+function setDate(id){
+  var el = document.getElementById(id);
+  if(!el) return;
+  var text = new Date(nowMs()).toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+  text = text.charAt(0).toUpperCase() + text.slice(1);
+  if(el.textContent !== text){ el.textContent = text; }
+}
 function renderDisplayLogo(id){
   var logoImg = document.getElementById(id);
   if(state.logo){ if(logoImg.getAttribute('src') !== state.logo) logoImg.src = state.logo; }
@@ -2827,6 +2903,7 @@ function renderStageMessage(){
 var TIMER_BASE_CLASS = 'disp-el disp-timer font-mono-time ';
 function tickStage(){
   setClock('stage-clock');
+  setDate('stage-date');
   var total = state.schedule.length;
   var finished = state.currentIndex >= total && total > 0;
   var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
@@ -2835,12 +2912,24 @@ function tickStage(){
   var statusEl = document.getElementById('stage-status');
   var nextEl = document.getElementById('stage-next');
   var barEl = document.getElementById('stage-progress-bar');
+  var overEl = document.getElementById('stage-overtime');
   var statusClass = 'disp-el disp-status';
+  // Prima dell'inizio e a evento finito il timer può lasciare il posto a un orologio grande.
+  var waiting = !cur && state.waitClock !== false;
+  document.getElementById('stage-root').classList.toggle('disp-waiting', waiting);
+  var overText = '';
+  if(cur && getRemainingSeconds(state.currentIndex) < 0){ overText = (state.overtimeText || '').trim(); }
+  if(overEl.textContent !== overText){ overEl.textContent = overText; }
 
   if(finished){
     fitName(nameEl, 'Evento terminato');
-    setTimerText(timerEl, '00:00');
-    timerEl.className = TIMER_BASE_CLASS + 'text-white/30';
+    if(waiting){
+      setTimerText(timerEl, new Date(nowMs()).toLocaleTimeString('it-IT'), true);
+      timerEl.className = TIMER_BASE_CLASS + 'text-white/80';
+    } else {
+      setTimerText(timerEl, '00:00');
+      timerEl.className = TIMER_BASE_CLASS + 'text-white/30';
+    }
     statusEl.textContent = '';
     statusEl.className = statusClass;
     nextEl.textContent = '';
@@ -2852,8 +2941,13 @@ function tickStage(){
     fitName(nameEl, state.eventTitle || 'In attesa di inizio');
     statusEl.textContent = 'IN ATTESA';
     statusEl.className = statusClass;
-    setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
-    timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
+    if(waiting){
+      setTimerText(timerEl, new Date(nowMs()).toLocaleTimeString('it-IT'), true);
+      timerEl.className = TIMER_BASE_CLASS + 'text-white/80';
+    } else {
+      setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
+      timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
+    }
     setNextLine(nextEl, total > 0 ? ('Si parte con: ' + state.schedule[0].speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '', total > 0 ? 0 : -1);
     barEl.style.width = '0';
     return;
@@ -2865,7 +2959,7 @@ function tickStage(){
   var colorClass = 'text-emerald-400', barColor = '#34d399';
   var blink = '';
   if(rem < 0){ colorClass = 'text-red-500'; barColor = '#ef4444'; blink = state.running ? ' blink-red' : ''; }
-  else if(rem <= 120){ colorClass = 'text-yellow-300'; barColor = '#fde047'; }
+  else if(rem <= warnThresholdSeconds(cur)){ colorClass = 'text-yellow-300'; barColor = '#fde047'; }
   setTimerText(timerEl, formatSecondsSigned(rem));
   timerEl.className = TIMER_BASE_CLASS + colorClass + blink;
   var dur = cur.duration * 60;
@@ -2887,6 +2981,7 @@ function renderCountdown(){
 function formatCountdown(sec){ return formatTimer(sec); }
 function tickCountdown(){
   setClock('countdown-clock');
+  setDate('countdown-date');
 
   var targetSec = hhmmToMinutes(state.eventStart) * 60;
   var nowSec = nowSecondsSinceMidnight();
@@ -3581,7 +3676,7 @@ function setVerifyStatus(msg, kind){
   el.textContent = msg || '';
   el.className = 'text-xs ' + (kind === 'ok' ? 'text-emerald-600 font-medium' : kind === 'error' ? 'text-red-600 font-medium' : 'text-gray-500');
 }
-function openSettingsModal(){
+function openSettingsModal(sectionId){
   document.getElementById('settings-provider').value = settings.provider;
   document.getElementById('settings-apikey').value = settings.apiKey;
   document.getElementById('settings-apikey').type = 'password';
@@ -3590,8 +3685,11 @@ function openSettingsModal(){
   updateSettingsKeyHelp();
   setVerifyStatus('');
   renderDisplaySettings();
+  renderTimerSettings();
+  renderQuickMessageSettings();
   document.getElementById('settings-modal').classList.remove('hidden');
-  if(!settings.apiKey){ setTimeout(function(){ document.getElementById('settings-apikey').focus(); }, 50); }
+  if(typeof sectionId === 'string'){ document.getElementById(sectionId).scrollIntoView({ block: 'start' }); }
+  else if(!settings.apiKey){ setTimeout(function(){ document.getElementById('settings-apikey').focus(); }, 50); }
 }
 // Verifica la chiave con una chiamata gratuita all'elenco modelli del provider.
 function verifyApiKey(provider, key){
@@ -3657,6 +3755,92 @@ function onDisplaySettingChange(e){
   else { c.pos = el.value; }
   broadcastState();
   renderDisplaySettings();
+}
+// Avviso, scritta alla scadenza e orologio d'attesa: valgono subito, anche sugli schermi aperti.
+function renderTimerSettings(){
+  var w = state.warn || {};
+  var mode = w.mode === 'pct' ? 'pct' : 'min';
+  var valueEl = document.getElementById('warn-value');
+  document.getElementById('warn-mode').value = mode;
+  valueEl.max = mode === 'pct' ? 100 : 60;
+  if(document.activeElement !== valueEl){ valueEl.value = mode === 'pct' ? w.pct : w.min; }
+  var sample = warnThresholdSeconds({ duration: 20 });
+  document.getElementById('warn-example').textContent = 'Per un intervento di 20 minuti: giallo negli ultimi ' + formatTimer(sample) + '.';
+  var overEl = document.getElementById('overtime-text');
+  if(document.activeElement !== overEl){ overEl.value = state.overtimeText || ''; }
+  document.getElementById('wait-clock').checked = state.waitClock !== false;
+}
+function onTimerSettingChange(e){
+  var id = e.target.id;
+  var w = Object.assign({ mode: 'min', min: 2, pct: 10 }, state.warn);
+  if(id === 'warn-mode'){ w.mode = e.target.value; }
+  else if(id === 'warn-value'){
+    var v = parseFloat(String(e.target.value).replace(',', '.'));
+    if(!(v >= 0)) return;
+    w[w.mode === 'pct' ? 'pct' : 'min'] = Math.min(v, w.mode === 'pct' ? 100 : 60);
+  }
+  else if(id === 'overtime-text'){ state.overtimeText = e.target.value.slice(0, 40); }
+  else if(id === 'wait-clock'){ state.waitClock = e.target.checked; }
+  state.warn = w;
+  broadcastState();
+  renderTimerSettings();
+  renderDashboard();
+}
+function renderQuickMessageSettings(){
+  var msgs = quickMessages();
+  var btn = 'p-1.5 rounded-lg text-gray-400 hover:text-ink hover:bg-gray-100 disabled:opacity-30 disabled:hover:bg-transparent';
+  document.getElementById('quick-msg-rows').innerHTML = msgs.map(function(m, i){
+    return '<div class="flex items-center gap-1">' +
+      '<input type="text" maxlength="120" data-qm="' + i + '" value="' + escapeHtml(m) + '" placeholder="Scrivi il messaggio" aria-label="Messaggio ' + (i + 1) + '" class="min-w-0 flex-1 text-sm border border-gray-200 rounded-lg px-2.5 py-1.5" />' +
+      '<button type="button" class="' + btn + '" data-qm-move="-1" data-qm-i="' + i + '" aria-label="Sposta su"' + (i === 0 ? ' disabled' : '') + '>' + chevronUpSVG + '</button>' +
+      '<button type="button" class="' + btn + '" data-qm-move="1" data-qm-i="' + i + '" aria-label="Sposta giù"' + (i === msgs.length - 1 ? ' disabled' : '') + '>' + chevronDownSVG + '</button>' +
+      '<button type="button" class="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50" data-qm-del="' + i + '" aria-label="Togli messaggio">' + trashIconSVG + '</button>' +
+    '</div>';
+  }).join('') || '<p class="text-xs text-gray-400">Nessun messaggio rapido.</p>';
+}
+function setQuickMessages(list, focusIndex){
+  state.quickMessages = list;
+  broadcastState();
+  renderQuickMessageSettings();
+  renderStageMessageControls();
+  if(focusIndex != null){
+    var input = document.querySelector('#quick-msg-rows [data-qm="' + focusIndex + '"]');
+    if(input){ input.focus(); }
+  }
+}
+function wireQuickMessageSettings(){
+  var rows = document.getElementById('quick-msg-rows');
+  rows.addEventListener('input', function(e){
+    var i = e.target.dataset.qm;
+    if(i == null) return;
+    var list = quickMessages().slice();
+    list[+i] = e.target.value;
+    state.quickMessages = list;
+    broadcastState();
+    renderStageMessageControls();
+  });
+  rows.addEventListener('click', function(e){
+    var list = quickMessages().slice();
+    var move = e.target.closest('[data-qm-move]');
+    var del = e.target.closest('[data-qm-del]');
+    if(move){
+      var i = +move.dataset.qmI, j = i + parseInt(move.dataset.qmMove, 10);
+      if(j < 0 || j >= list.length) return;
+      var tmp = list[i]; list[i] = list[j]; list[j] = tmp;
+      setQuickMessages(list);
+    } else if(del){
+      list.splice(+del.dataset.qmDel, 1);
+      setQuickMessages(list);
+    }
+  });
+  document.getElementById('quick-msg-add').addEventListener('click', function(){
+    var list = quickMessages().slice();
+    list.push('');
+    setQuickMessages(list, list.length - 1);
+  });
+  document.getElementById('quick-msg-reset').addEventListener('click', function(){
+    setQuickMessages(DEFAULT_QUICK_MESSAGES.slice());
+  });
 }
 function closeSettingsModal(){
   document.getElementById('settings-modal').classList.add('hidden');
@@ -3912,13 +4096,6 @@ function v2SetDrawer(open, tab){
   document.getElementById('v2-edit-label').textContent = open ? 'Fine modifica' : 'Modifica';
   if(tab){ v2ShowTab(tab); }
 }
-// Gli zeri iniziali del timer restano in vista ma attenuati: l'occhio va subito alle cifre che contano.
-function v2TimerHtml(text){
-  var m = /^([+\-−]?)([0:]*)(.*)$/.exec(text);
-  var sign = m[1], zeros = m[2], rest = m[3];
-  if(!rest){ rest = zeros.slice(-1); zeros = zeros.slice(0, -1); }
-  return sign + (zeros ? '<span class="z">' + zeros + '</span>' : '') + rest;
-}
 
 function setupV2(){
   document.body.classList.add('ui-v2');
@@ -4105,10 +4282,10 @@ function tickV2(){
     var rem = getRemainingSeconds(state.currentIndex);
     var dur = cur.duration * 60;
     text = formatSecondsSigned(rem);
-    color = rem < 0 ? 'over' : (rem <= 120 ? 'warn' : 'ok');
+    color = timerZone(rem, cur);
     blink = rem < 0 && state.running;
     frac = dur > 0 ? Math.min(1, Math.max(0, 1 - rem / dur)) : 1;
-    barColor = rem < 0 ? '#ef4444' : (rem <= 120 ? '#fbbf24' : '#34d399');
+    barColor = { over: '#ef4444', warn: '#fbbf24', ok: '#34d399' }[color];
     metaL = rem < 0 ? 'fuori tempo di ' + formatTimer(-rem) : 'finisce alle ' + secondsToClock(nowSecondsSinceMidnight() + rem);
     metaR = 'previsti ' + formatSecondsSigned(dur);
   } else if(finished){
@@ -4117,7 +4294,7 @@ function tickV2(){
     text = total > 0 ? formatSecondsSigned(state.schedule[0].duration * 60) : '00:00';
     if(total > 0){ metaL = 'si parte con ' + state.schedule[0].speaker + ' alle ' + secondsToClock(plannedStartSeconds(0)); }
   }
-  var html = v2TimerHtml(text);
+  var html = timerHtml(text);
   if(html !== v2TimerHtmlLast){ timer.innerHTML = html; v2TimerHtmlLast = html; }
   timer.className = 'v2-timer font-mono-time' + (color ? ' ' + color : '') + (blink ? ' blink-red' : '') + (cur ? ' can-edit' : '') + (editing ? ' hidden' : '');
   var bar = document.getElementById('v2-bar');
@@ -4161,6 +4338,10 @@ function wireEvents(){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
   });
   document.getElementById('display-settings-rows').addEventListener('change', onDisplaySettingChange);
+  ['warn-mode', 'warn-value', 'overtime-text', 'wait-clock'].forEach(function(id){
+    document.getElementById(id).addEventListener(id === 'warn-mode' || id === 'wait-clock' ? 'change' : 'input', onTimerSettingChange);
+  });
+  wireQuickMessageSettings();
   Array.prototype.forEach.call(document.querySelectorAll('.display-tab'), function(tab){
     tab.addEventListener('click', function(){ displaySettingsScreen = tab.dataset.screen; renderDisplaySettings(); });
   });
@@ -4293,9 +4474,18 @@ function wireEvents(){
   document.getElementById('pause-btn').addEventListener('click', actionPause);
   document.getElementById('reset-btn').addEventListener('click', actionReset);
   document.getElementById('next-btn').addEventListener('click', actionNext);
-  Array.prototype.forEach.call(document.querySelectorAll('.stage-msg-quick'), function(btn){
+  document.getElementById('stage-msg-quick-toggle').addEventListener('click', function(){
+    var list = document.getElementById('stage-msg-quick-list');
+    var open = list.classList.contains('hidden');
+    list.classList.toggle('hidden', !open);
+    this.setAttribute('aria-expanded', open ? 'true' : 'false');
+    this.querySelector('svg').style.transform = open ? 'rotate(180deg)' : '';
+  });
+  document.getElementById('stage-msg-quick-list').addEventListener('click', function(e){
+    if(e.target.closest('[data-quick-edit]')){ openSettingsModal('settings-quick-section'); return; }
+    var btn = e.target.closest('.stage-msg-quick');
     // Ripremere il messaggio già attivo lo toglie.
-    btn.addEventListener('click', function(){ setStageMessage(state.stageMessage === btn.dataset.msg ? '' : btn.dataset.msg); });
+    if(btn){ setStageMessage(state.stageMessage === btn.dataset.msg ? '' : btn.dataset.msg); }
   });
   document.getElementById('stage-msg-form').addEventListener('submit', function(e){
     e.preventDefault();
