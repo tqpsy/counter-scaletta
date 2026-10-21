@@ -528,30 +528,23 @@
 
       <!-- Orario evento: sopra la scaletta, così da telefono non serve scorrerla tutta; su PC viene spostato nella colonna di destra, sotto il Countdown. -->
       <span id="event-time-home" class="hidden"></span>
-      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent p-4 sm:p-5 shadow-sm">
-        <h2 class="text-xs font-semibold tracking-wide text-white/60 mb-3">ORARIO EVENTO</h2>
-        <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2 gap-3 mb-2">
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-start-input">Inizio</label>
-            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-end-input">Fine desiderata</label>
-            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-          <div>
-            <p class="text-xs text-white/50 mb-1">Fine prevista (piano)</p>
-            <p id="planned-finish" class="font-mono-time text-xl xl:text-2xl font-semibold text-white/80">--:--</p>
-          </div>
-          <div>
-            <p class="text-xs text-white/50 mb-1">Stima fine reale</p>
-            <p id="live-finish-estimate" class="font-mono-time text-xl xl:text-2xl font-semibold text-white">--:--</p>
-          </div>
+      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent px-4 py-3 shadow-sm">
+        <div class="flex items-center justify-between gap-2 mb-2">
+          <h2 class="text-xs font-semibold tracking-wide text-white/60">ORARIO EVENTO</h2>
+          <button id="apply-endtime-btn" type="button" title="Adatta la scaletta al nuovo orario di fine" class="shrink-0 text-xs font-semibold bg-white/10 hover:bg-white/15 text-white px-2.5 py-1.5 rounded-md transition-colors">Adatta alla fine</button>
         </div>
-        <p id="end-diff" class="text-xs text-white/50 mb-3"></p>
-        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold py-2 rounded-lg transition-colors">
-          Adatta scaletta al nuovo orario di fine
-        </button>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="flex items-center gap-2 text-xs text-white/50 min-w-0">Inizio
+            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="min-w-0 flex-1 text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2 py-1.5 focus:outline-none" />
+          </label>
+          <label class="flex items-center gap-2 text-xs text-white/50 min-w-0" title="Fine desiderata">Fine
+            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="min-w-0 flex-1 text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2 py-1.5 focus:outline-none" />
+          </label>
+        </div>
+        <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 mt-2 text-xs text-white/50">
+          <p>Piano <span id="planned-finish" class="font-mono-time font-semibold text-white/80">--:--</span> · Stima <span id="live-finish-estimate" class="font-mono-time font-semibold text-white">--:--</span></p>
+          <p id="end-diff" class="text-xs text-white/50"></p>
+        </div>
       </section>
 
       <!-- Tabella scaletta -->
@@ -2568,14 +2561,14 @@ function updateFinishEstimate(){
   if(total === 0 || state.currentIndex >= total){
     endDiffEl.textContent = '';
   } else if(Math.abs(endDiff) < 1){
-    endDiffEl.textContent = 'In linea con l\'orario di fine.';
-    endDiffEl.className = 'text-xs text-white/50 mb-4';
+    endDiffEl.textContent = 'In linea con la fine';
+    endDiffEl.className = 'text-xs text-white/50';
   } else if(endDiff < 0){
-    endDiffEl.textContent = 'Sforamento previsto di ' + hoursMinutesLabel(endDiff) + ' oltre la fine desiderata.';
-    endDiffEl.className = 'text-xs text-red-400 font-medium mb-4';
+    endDiffEl.textContent = 'Sfora di ' + hoursMinutesLabel(endDiff);
+    endDiffEl.className = 'text-xs text-red-400 font-medium';
   } else {
-    endDiffEl.textContent = 'Margine di ' + hoursMinutesLabel(endDiff) + ' prima della fine desiderata.';
-    endDiffEl.className = 'text-xs text-emerald-400 font-medium mb-4';
+    endDiffEl.textContent = 'Margine ' + hoursMinutesLabel(endDiff);
+    endDiffEl.className = 'text-xs text-emerald-400 font-medium';
   }
 }
 
