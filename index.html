@@ -526,6 +526,34 @@
         </div>
       </section>
 
+      <!-- Orario evento: sopra la scaletta, così da telefono non serve scorrerla tutta; su PC viene spostato nella colonna di destra, sotto il Countdown. -->
+      <span id="event-time-home" class="hidden"></span>
+      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent p-4 sm:p-5 shadow-sm">
+        <h2 class="text-xs font-semibold tracking-wide text-white/60 mb-3">ORARIO EVENTO</h2>
+        <div class="grid grid-cols-2 sm:grid-cols-4 xl:grid-cols-2 gap-3 mb-2">
+          <div>
+            <label class="text-xs text-white/50 block mb-1" for="event-start-input">Inizio</label>
+            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
+          </div>
+          <div>
+            <label class="text-xs text-white/50 block mb-1" for="event-end-input">Fine desiderata</label>
+            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
+          </div>
+          <div>
+            <p class="text-xs text-white/50 mb-1">Fine prevista (piano)</p>
+            <p id="planned-finish" class="font-mono-time text-xl xl:text-2xl font-semibold text-white/80">--:--</p>
+          </div>
+          <div>
+            <p class="text-xs text-white/50 mb-1">Stima fine reale</p>
+            <p id="live-finish-estimate" class="font-mono-time text-xl xl:text-2xl font-semibold text-white">--:--</p>
+          </div>
+        </div>
+        <p id="end-diff" class="text-xs text-white/50 mb-3"></p>
+        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold py-2 rounded-lg transition-colors">
+          Adatta scaletta al nuovo orario di fine
+        </button>
+      </section>
+
       <!-- Tabella scaletta -->
       <section id="schedule-section" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div class="flex flex-wrap items-center justify-between gap-3 px-4 sm:px-5 py-4 border-b border-gray-100">
@@ -577,36 +605,6 @@
             <tbody id="schedule-tbody"></tbody>
           </table>
         </div>
-      </section>
-
-      <!-- Orario evento: su PC viene spostato nella colonna di destra, sotto il Countdown. -->
-      <span id="event-time-home" class="hidden"></span>
-      <section id="event-time-panel" class="bg-panel text-white rounded-xl border-l-4 border-accent p-5 sm:p-6 xl:p-5 shadow-sm">
-        <h2 class="text-xs font-semibold tracking-wide text-white/60 mb-3">ORARIO EVENTO</h2>
-        <div class="grid grid-cols-2 gap-3 mb-4">
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-start-input">Inizio</label>
-            <input type="time" id="event-start-input" value="09:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-          <div>
-            <label class="text-xs text-white/50 block mb-1" for="event-end-input">Fine desiderata</label>
-            <input type="time" id="event-end-input" value="18:00" style="color-scheme: dark" class="w-full text-sm bg-white/10 text-white border border-white/15 rounded-lg px-2.5 py-2 focus:outline-none" />
-          </div>
-        </div>
-        <div class="grid grid-cols-2 gap-3 mb-2">
-          <div>
-            <p class="text-xs text-white/50">Fine prevista (piano)</p>
-            <p id="planned-finish" class="font-mono-time text-2xl font-semibold text-white/80">--:--</p>
-          </div>
-          <div>
-            <p class="text-xs text-white/50">Stima fine reale</p>
-            <p id="live-finish-estimate" class="font-mono-time text-2xl font-semibold text-white">--:--</p>
-          </div>
-        </div>
-        <p id="end-diff" class="text-xs text-white/50 mb-4"></p>
-        <button id="apply-endtime-btn" type="button" class="w-full inline-flex items-center justify-center gap-2 bg-white/10 hover:bg-white/15 text-white text-sm font-semibold py-2.5 rounded-lg transition-colors">
-          Adatta scaletta al nuovo orario di fine
-        </button>
       </section>
 
       <!-- Info -->
