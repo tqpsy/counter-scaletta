@@ -891,10 +891,17 @@
         </div>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2">
           <label class="text-sm text-gray-800 flex-1 min-w-[10rem]" for="display-bg-gradient">Sfumatura</label>
-          <select id="display-bg-gradient" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40">
+          <select id="display-bg-gradient" aria-label="Intensità della sfumatura" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-28">
             <option value="none">Nessuna</option>
             <option value="light">Leggera</option>
             <option value="strong">Marcata</option>
+          </select>
+          <select id="display-bg-direction" aria-label="Direzione della sfumatura" title="Da dove parte la parte più chiara" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-32">
+            <option value="center">Dal centro</option>
+            <option value="top">Dall'alto</option>
+            <option value="bottom">Dal basso</option>
+            <option value="left">Da sinistra</option>
+            <option value="right">Da destra</option>
           </select>
         </div>
         <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2">
@@ -1169,11 +1176,14 @@ function isLightColor(hex){
 // Sfumatura e immagine di sfondo, per schermo.
 var BG_GRADIENTS = { none: 0, light: 1, strong: 2 };
 var BG_VEILS = [0, 20, 40, 60, 80];
-function defaultDisplayBgStyle(){ return { stage: { gradient: 'none', image: false, veil: 40 }, countdown: { gradient: 'none', image: false, veil: 40 } }; }
+// Da dove parte la luce della sfumatura: la parte più chiara sta da quel lato.
+var BG_DIRECTIONS = { center: null, top: 'to bottom', bottom: 'to top', left: 'to right', right: 'to left' };
+function defaultDisplayBgStyle(){ return { stage: { gradient: 'none', direction: 'center', image: false, veil: 40 }, countdown: { gradient: 'none', direction: 'center', image: false, veil: 40 } }; }
 function displayBgStyle(screen){
   var src = (state.displayBgStyle && state.displayBgStyle[screen]) || {};
   return {
     gradient: BG_GRADIENTS.hasOwnProperty(src.gradient) ? src.gradient : 'none',
+    direction: BG_DIRECTIONS.hasOwnProperty(src.direction) ? src.direction : 'center',
     image: !!src.image,
     veil: BG_VEILS.indexOf(src.veil) !== -1 ? src.veil : 40
   };
@@ -1196,7 +1206,9 @@ function displayBackground(screen){
     var k = st.gradient === 'light' ? 1 : 2;
     var center = mixHex(color, '#ffffff', 0.12 * k);
     var edge = mixHex(color, '#000000', 0.22 * k);
-    layers.push('radial-gradient(ellipse at 50% 40%, ' + rgbaOf(center, alpha) + ' 0%, ' + rgbaOf(color, alpha) + ' 55%, ' + rgbaOf(edge, alpha) + ' 100%)');
+    var stops = rgbaOf(center, alpha) + ' 0%, ' + rgbaOf(color, alpha) + ' 55%, ' + rgbaOf(edge, alpha) + ' 100%';
+    var dir = BG_DIRECTIONS[st.direction];
+    layers.push(dir ? 'linear-gradient(' + dir + ', ' + stops + ')' : 'radial-gradient(ellipse at 50% 40%, ' + stops + ')');
   } else if(useImage && alpha > 0){
     layers.push('linear-gradient(' + rgbaOf(color, alpha) + ', ' + rgbaOf(color, alpha) + ')');
   }
@@ -3863,6 +3875,10 @@ function renderDisplaySettings(){
   document.getElementById('display-bg-reset').classList.toggle('hidden', bg === '#000000');
   var bgStyle = displayBgStyle(screen);
   document.getElementById('display-bg-gradient').value = bgStyle.gradient;
+  var dirSel = document.getElementById('display-bg-direction');
+  dirSel.value = bgStyle.direction;
+  dirSel.disabled = bgStyle.gradient === 'none';
+  dirSel.classList.toggle('opacity-40', dirSel.disabled);
   var imgBox = document.getElementById('display-bg-image');
   imgBox.checked = bgStyle.image && !!state.bgImage;
   imgBox.disabled = !state.bgImage;
@@ -4570,6 +4586,7 @@ function wireEvents(){
   });
   document.getElementById('display-bg-reset').addEventListener('click', function(){ setDisplayBg('#000000'); });
   document.getElementById('display-bg-gradient').addEventListener('change', function(e){ setDisplayBgStyle('gradient', e.target.value); });
+  document.getElementById('display-bg-direction').addEventListener('change', function(e){ setDisplayBgStyle('direction', e.target.value); });
   document.getElementById('display-bg-image').addEventListener('change', function(e){ setDisplayBgStyle('image', e.target.checked); });
   document.getElementById('display-bg-veil').addEventListener('change', function(e){ setDisplayBgStyle('veil', parseInt(e.target.value, 10)); });
   document.getElementById('bgimg-file-input').addEventListener('change', function(e){
