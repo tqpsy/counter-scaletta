@@ -89,7 +89,7 @@
   @keyframes dispMsgFlash { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
   .disp-msg.disp-msg-new { animation: dispMsgFlash .6s ease-in-out 5; }
   @media (prefers-reduced-motion: reduce) { .disp-msg.disp-msg-new { animation: none; } }
-  .disp-sub { font-size: calc(var(--s) * clamp(0.9rem, min(2.2vw, 3.6vh), 2.5rem)); color: rgba(255,255,255,.7); }
+  .disp-sub { font-size: calc(var(--s) * var(--fit) * clamp(0.9rem, min(2.2vw, 3.6vh), 2.5rem)); line-height: 1.2; color: rgba(255,255,255,.7); }
   .disp-fs-btn { position: fixed; right: 16px; bottom: 16px; z-index: 40; align-items: center; gap: .5rem; padding: .6rem .9rem; border-radius: .6rem; background: rgba(255,255,255,.14); color: #fff; font-size: .875rem; font-weight: 600; transition: opacity .3s; }
   .disp-fs-btn:hover { background: rgba(255,255,255,.24); }
   .disp-fs-btn.disp-idle { opacity: 0; pointer-events: none; }
@@ -3010,6 +3010,21 @@ function fitMiddle(screen){
     timer.style.setProperty('--fit', fit);
   }
 }
+// Una riga di testo (per esempio "Prossimo") va a capo al massimo su maxLines righe:
+// se non basta rimpicciolisce, così non ruba lo spazio al timer.
+function fitLines(el, maxLines){
+  var key = el.textContent + '|' + window.innerWidth + 'x' + window.innerHeight + '|' + appliedLayoutKey;
+  if(el._fitKey === key) return;
+  el._fitKey = key;
+  var fit = 1;
+  el.style.setProperty('--fit', fit);
+  if(!el.offsetHeight) return;
+  function tooTall(){ var fs = parseFloat(getComputedStyle(el).fontSize) || 16; return el.offsetHeight > fs * 1.2 * maxLines + 2; }
+  while(fit > 0.5 && tooTall()){
+    fit = Math.round((fit - 0.05) * 100) / 100;
+    el.style.setProperty('--fit', fit);
+  }
+}
 // Il nome va a capo su due righe e, se non basta, rimpicciolisce.
 var lastFitText = null;
 function fitName(el, text){
@@ -4971,7 +4986,7 @@ function init(){
   else if(!isStage && !isCountdown){ wireShareEvents(); resumeShare(); }
 
   setInterval(function(){
-    if(isStage){ tickStage(); fitMiddle('stage'); }
+    if(isStage){ tickStage(); fitLines(document.getElementById('stage-next'), 2); fitMiddle('stage'); }
     else if(isCountdown){ tickCountdown(); fitMiddle('countdown'); }
     else { tickDashboard(); }
   }, 250);
