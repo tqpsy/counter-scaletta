@@ -834,7 +834,7 @@
       </div>
 
       <div class="border-t border-gray-100 pt-4">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Logo</h3>
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Logo e sfondo</h3>
         <p class="text-xs text-gray-500 mb-2">Usato come logo nella dashboard e nello Stage Display. L'icona dell'app resta quella di Regia Tempi.</p>
         <div class="flex items-center gap-3">
           <img id="settings-logo-preview" src="" alt="Anteprima logo" class="hidden h-12 w-12 rounded-lg object-contain bg-gray-50 border border-gray-200" />
@@ -843,6 +843,15 @@
           </label>
           <input type="file" id="logo-file-input" accept="image/*" class="hidden" />
           <button id="logo-remove-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Rimuovi</button>
+        </div>
+        <p class="text-xs text-gray-500 mt-4 mb-2">Immagine di sfondo per Stage e Countdown (foto, grafica dell'evento). Si attiva per ciascuno schermo qui sotto, in Display.</p>
+        <div class="flex items-center gap-3">
+          <img id="settings-bgimg-preview" src="" alt="Anteprima sfondo" class="hidden h-12 w-20 rounded-lg object-cover bg-gray-50 border border-gray-200" />
+          <label for="bgimg-file-input" class="inline-flex items-center gap-2 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg cursor-pointer transition-colors">
+            Carica sfondo
+          </label>
+          <input type="file" id="bgimg-file-input" accept="image/*" class="hidden" />
+          <button id="bgimg-remove-btn" type="button" class="hidden text-xs font-medium text-gray-400 hover:text-red-600 transition-colors">Rimuovi</button>
         </div>
       </div>
 
@@ -879,6 +888,27 @@
           <input type="color" id="display-bg-input" value="#000000" aria-label="Colore dello sfondo" class="w-9 h-9 p-0 border border-gray-200 rounded cursor-pointer bg-transparent" />
           <input type="text" id="display-bg-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Codice colore dello sfondo" class="w-24 text-xs font-mono-time border border-gray-200 rounded-lg px-2 py-1.5" />
           <button type="button" id="display-bg-reset" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Nero</button>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2">
+          <label class="text-sm text-gray-800 flex-1 min-w-[10rem]" for="display-bg-gradient">Sfumatura</label>
+          <select id="display-bg-gradient" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40">
+            <option value="none">Nessuna</option>
+            <option value="light">Leggera</option>
+            <option value="strong">Marcata</option>
+          </select>
+        </div>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2">
+          <label class="flex items-center gap-2 text-sm text-gray-800 flex-1 min-w-[10rem] cursor-pointer">
+            <input type="checkbox" id="display-bg-image" class="w-4 h-4 accent-[#E8A33D]" /> Immagine di sfondo
+          </label>
+          <select id="display-bg-veil" aria-label="Velo sopra l'immagine" title="Velo del colore di fondo sopra l'immagine: più è alto, più i testi si leggono" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40">
+            <option value="0">Velo 0% (immagine piena)</option>
+            <option value="20">Velo 20%</option>
+            <option value="40">Velo 40%</option>
+            <option value="60">Velo 60%</option>
+            <option value="80">Velo 80%</option>
+          </select>
+          <p id="display-bg-image-note" class="w-full text-[11px] text-gray-400">Carica un'immagine di sfondo qui sopra, in "Logo e sfondo".</p>
         </div>
         <div class="pb-3">
           <div class="flex flex-wrap items-center gap-2">
@@ -1009,6 +1039,7 @@
 var LS_SETTINGS_KEY = 'rtl_settings_v1';
 var LS_STATE_KEY = 'rtl_state_v1';
 var LS_LOGO_KEY = 'rtl_logo_v1';
+var LS_BGIMG_KEY = 'rtl_bgimg_v1';
 var BC_NAME = 'regia_tempi_relatori_v1';
 var MIN_ITEM_SECONDS = 60;
 // Schermi in rete: progetto Firebase (Realtime Database + accesso anonimo).
@@ -1066,6 +1097,8 @@ function defaultState(){
     eventStart: '09:00',
     eventEnd: '18:00',
     logo: null,
+    bgImage: null,
+    bgImageAvg: '#000000',
     schedule: [],
     currentIndex: -1,
     running: false,
@@ -1073,7 +1106,8 @@ function defaultState(){
     recoveredSeconds: 0,
     stageMessage: '',
     display: defaultDisplay(),
-    displayBg: defaultDisplayBg()
+    displayBg: defaultDisplayBg(),
+    displayBgStyle: defaultDisplayBgStyle()
   };
 }
 
@@ -1132,12 +1166,56 @@ function isLightColor(hex){
   var lin = hexToRgb(hex).map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
   return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.4;
 }
+// Sfumatura e immagine di sfondo, per schermo.
+var BG_GRADIENTS = { none: 0, light: 1, strong: 2 };
+var BG_VEILS = [0, 20, 40, 60, 80];
+function defaultDisplayBgStyle(){ return { stage: { gradient: 'none', image: false, veil: 40 }, countdown: { gradient: 'none', image: false, veil: 40 } }; }
+function displayBgStyle(screen){
+  var src = (state.displayBgStyle && state.displayBgStyle[screen]) || {};
+  return {
+    gradient: BG_GRADIENTS.hasOwnProperty(src.gradient) ? src.gradient : 'none',
+    image: !!src.image,
+    veil: BG_VEILS.indexOf(src.veil) !== -1 ? src.veil : 40
+  };
+}
+// Mescola due colori: t = 0 primo colore, t = 1 secondo.
+function mixHex(a, b, t){
+  var x = hexToRgb(a), y = hexToRgb(b);
+  return rgbToHex(Math.round(x[0] + (y[0]-x[0]) * t), Math.round(x[1] + (y[1]-x[1]) * t), Math.round(x[2] + (y[2]-x[2]) * t));
+}
+function rgbaOf(hex, alpha){ var c = hexToRgb(hex); return 'rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',' + alpha + ')'; }
+// Sfondo completo (colore, sfumatura, velo, immagine) e colore che si vede in media,
+// da cui dipende se i testi devono essere chiari o scuri.
+function displayBackground(screen){
+  var color = displayBg(screen);
+  var st = displayBgStyle(screen);
+  var useImage = st.image && !!state.bgImage;
+  var alpha = useImage ? st.veil / 100 : 1;
+  var layers = [];
+  if(st.gradient !== 'none'){
+    var k = st.gradient === 'light' ? 1 : 2;
+    var center = mixHex(color, '#ffffff', 0.12 * k);
+    var edge = mixHex(color, '#000000', 0.22 * k);
+    layers.push('radial-gradient(ellipse at 50% 40%, ' + rgbaOf(center, alpha) + ' 0%, ' + rgbaOf(color, alpha) + ' 55%, ' + rgbaOf(edge, alpha) + ' 100%)');
+  } else if(useImage && alpha > 0){
+    layers.push('linear-gradient(' + rgbaOf(color, alpha) + ', ' + rgbaOf(color, alpha) + ')');
+  }
+  if(useImage){ layers.push('url("' + state.bgImage + '") center / cover no-repeat'); }
+  var seen = useImage ? mixHex(state.bgImageAvg && isHexColor(state.bgImageAvg) ? state.bgImageAvg : '#000000', color, alpha) : color;
+  return { color: color, image: layers.join(', '), seen: seen };
+}
+var appliedBgKey = {};
 function applyDisplayBg(screen){
   var root = document.getElementById(screen + '-root');
-  var bg = displayBg(screen);
-  if(root.style.backgroundColor !== bg){ root.style.backgroundColor = bg; }
-  root.classList.toggle('disp-light', isLightColor(bg));
-  document.body.classList.toggle('disp-light-page', isLightColor(bg)); // pulsante "Schermo intero", fuori dal display
+  var bg = displayBackground(screen);
+  var key = bg.color + '|' + bg.image.length + '|' + bg.image.slice(0, 400) + '|' + bg.image.slice(-120);
+  if(appliedBgKey[screen] !== key){
+    appliedBgKey[screen] = key;
+    root.style.background = bg.image ? bg.image + ', ' + bg.color : bg.color;
+  }
+  var light = isLightColor(bg.seen);
+  root.classList.toggle('disp-light', light);
+  document.body.classList.toggle('disp-light-page', light); // pulsante "Schermo intero", fuori dal display
 }
 function isHexColor(v){ return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
 // Colore del timer scelto nelle impostazioni (o quello predefinito).
@@ -1222,18 +1300,26 @@ function loadState(){
     }
     var logo = localStorage.getItem(LS_LOGO_KEY);
     if(logo){ st.logo = logo; }
+    var bgImage = localStorage.getItem(LS_BGIMG_KEY);
+    if(bgImage){ st.bgImage = bgImage; }
   }catch(e){}
   return st;
 }
 function stateWithoutLogo(){
   var copy = {};
-  for(var k in state){ if(k !== 'logo' && Object.prototype.hasOwnProperty.call(state, k)) copy[k] = state[k]; }
+  for(var k in state){ if(k !== 'logo' && k !== 'bgImage' && Object.prototype.hasOwnProperty.call(state, k)) copy[k] = state[k]; }
   return copy;
 }
 var saveErrorShown = false;
 var savedLogo;
+var savedBgImage;
 function saveState(){
   try{
+    if(state.bgImage !== savedBgImage){
+      if(state.bgImage){ localStorage.setItem(LS_BGIMG_KEY, state.bgImage); }
+      else { localStorage.removeItem(LS_BGIMG_KEY); }
+      savedBgImage = state.bgImage;
+    }
     if(state.logo !== savedLogo){
       if(state.logo){ localStorage.setItem(LS_LOGO_KEY, state.logo); }
       else { localStorage.removeItem(LS_LOGO_KEY); }
@@ -1245,7 +1331,7 @@ function saveState(){
   catch(e){
     if(!saveErrorShown && !isStage && !isCountdown){
       saveErrorShown = true;
-      toast('Impossibile salvare i dati in locale (spazio esaurito?). Prova a rimuovere o sostituire il logo con uno più leggero.', 'error');
+      toast('Impossibile salvare i dati in locale (spazio esaurito?). Prova a rimuovere o sostituire il logo o l\'immagine di sfondo con uno più leggero.', 'error');
     }
   }
 }
@@ -1273,7 +1359,7 @@ if(!isRemoteDisplay){ try{ bc = new BroadcastChannel(BC_NAME); }catch(e){ bc = n
 // Ultimo valore sincronizzato di ogni campo (serializzato; il logo è già una
 // stringa). Serve a inviare solo i campi cambiati dall'ultimo messaggio.
 var syncedFields = {};
-function fieldKey(k, v){ return k === 'logo' ? (v || '') : JSON.stringify(v); }
+function fieldKey(k, v){ return (k === 'logo' || k === 'bgImage') ? (v || '') : JSON.stringify(v); }
 function rememberSynced(obj){
   for(var k in obj){ if(Object.prototype.hasOwnProperty.call(obj, k)) syncedFields[k] = fieldKey(k, obj[k]); }
 }
@@ -1281,6 +1367,7 @@ rememberSynced(state);
 // Al primo avvio dopo l'aggiornamento il logo è ancora dentro rtl_state_v1:
 // partendo da ciò che è davvero in LS_LOGO_KEY, il primo salvataggio lo migra.
 try{ savedLogo = localStorage.getItem(LS_LOGO_KEY) || null; }catch(e){ savedLogo = null; }
+try{ savedBgImage = localStorage.getItem(LS_BGIMG_KEY) || null; }catch(e){ savedBgImage = null; }
 
 function broadcastState(){
   historyRecord();
@@ -1308,12 +1395,14 @@ if(bc){
       state.display = normalizeDisplay(state.display);
       rememberSynced(state);
       savedLogo = state.logo;
+      savedBgImage = state.bgImage;
       renderActive();
     } else if(msg.type === 'patch'){
       Object.assign(state, msg.payload);
       if('display' in msg.payload) state.display = normalizeDisplay(state.display);
       rememberSynced(msg.payload);
       if('logo' in msg.payload) savedLogo = state.logo;
+      if('bgImage' in msg.payload) savedBgImage = state.bgImage;
       renderActive();
     } else if(msg.type === 'request_state' && !isStage && !isCountdown){
       sendFullState();
@@ -1323,10 +1412,11 @@ if(bc){
   // Ripiego per browser senza BroadcastChannel: con il canale attivo l'evento
   // storage duplicherebbe ogni aggiornamento, quindi lo si ascolta solo qui.
   window.addEventListener('storage', function(e){
-    if(e.key !== LS_STATE_KEY && e.key !== LS_LOGO_KEY) return;
+    if(e.key !== LS_STATE_KEY && e.key !== LS_LOGO_KEY && e.key !== LS_BGIMG_KEY) return;
     state = loadState();
     rememberSynced(state);
     savedLogo = state.logo;
+    savedBgImage = state.bgImage;
     renderActive();
   });
 }
@@ -3767,6 +3857,21 @@ function renderDisplaySettings(){
   var bgHex = document.getElementById('display-bg-hex');
   if(document.activeElement !== bgHex){ bgHex.value = bg; }
   document.getElementById('display-bg-reset').classList.toggle('hidden', bg === '#000000');
+  var bgStyle = displayBgStyle(screen);
+  document.getElementById('display-bg-gradient').value = bgStyle.gradient;
+  var imgBox = document.getElementById('display-bg-image');
+  imgBox.checked = bgStyle.image && !!state.bgImage;
+  imgBox.disabled = !state.bgImage;
+  imgBox.closest('label').classList.toggle('opacity-40', !state.bgImage);
+  var veil = document.getElementById('display-bg-veil');
+  veil.value = String(bgStyle.veil);
+  veil.disabled = !imgBox.checked;
+  veil.classList.toggle('opacity-40', !imgBox.checked);
+  document.getElementById('display-bg-image-note').classList.toggle('hidden', !!state.bgImage);
+  var bgPreview = document.getElementById('settings-bgimg-preview');
+  if(state.bgImage){ if(bgPreview.getAttribute('src') !== state.bgImage){ bgPreview.src = state.bgImage; } bgPreview.classList.remove('hidden'); }
+  else { bgPreview.removeAttribute('src'); bgPreview.classList.add('hidden'); }
+  document.getElementById('bgimg-remove-btn').classList.toggle('hidden', !state.bgImage);
   document.getElementById('logo-picker-toggle').disabled = !state.logo;
   document.getElementById('logo-picker-nologo').classList.toggle('hidden', !!state.logo);
   if(!state.logo){ document.getElementById('logo-picker').classList.add('hidden'); }
@@ -3804,6 +3909,31 @@ function timerColorsHtml(screen, def, c, off){
     }).join('') +
     (changed ? '<button type="button" data-timer-colors-reset="1" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Colori predefiniti</button>' : '') +
   '</div>';
+}
+function setDisplayBgStyle(field, value){
+  state.displayBgStyle = Object.assign(defaultDisplayBgStyle(), state.displayBgStyle || {});
+  var cur = displayBgStyle(displaySettingsScreen);
+  cur[field] = value;
+  state.displayBgStyle[displaySettingsScreen] = cur;
+  broadcastState();
+  renderDisplaySettings();
+}
+// Colore medio di un'immagine (per capire se sotto il velo è chiara o scura).
+function averageColor(dataUrl){
+  return new Promise(function(resolve){
+    var img = new Image();
+    img.onload = function(){
+      try{
+        var c = document.createElement('canvas'); c.width = 32; c.height = 32;
+        var ctx = c.getContext('2d'); ctx.drawImage(img, 0, 0, 32, 32);
+        var d = ctx.getImageData(0, 0, 32, 32).data, r = 0, g = 0, b = 0, n = 0;
+        for(var i = 0; i < d.length; i += 4){ r += d[i]; g += d[i+1]; b += d[i+2]; n++; }
+        resolve(rgbToHex(Math.round(r/n), Math.round(g/n), Math.round(b/n)));
+      }catch(e){ resolve('#000000'); }
+    };
+    img.onerror = function(){ resolve('#000000'); };
+    img.src = dataUrl;
+  });
 }
 function setDisplayBg(hex){
   if(!isHexColor(hex)) return false;
@@ -4421,6 +4551,42 @@ function wireEvents(){
     if(!setDisplayBg(v)){ toast('Codice colore non valido: usa il formato #RRGGBB (es. #1A2B3C).', 'error'); renderDisplaySettings(); }
   });
   document.getElementById('display-bg-reset').addEventListener('click', function(){ setDisplayBg('#000000'); });
+  document.getElementById('display-bg-gradient').addEventListener('change', function(e){ setDisplayBgStyle('gradient', e.target.value); });
+  document.getElementById('display-bg-image').addEventListener('change', function(e){ setDisplayBgStyle('image', e.target.checked); });
+  document.getElementById('display-bg-veil').addEventListener('change', function(e){ setDisplayBgStyle('veil', parseInt(e.target.value, 10)); });
+  document.getElementById('bgimg-file-input').addEventListener('change', function(e){
+    var file = e.target.files && e.target.files[0];
+    if(!file) return;
+    e.target.value = '';
+    if(file.type.indexOf('image/') !== 0){ toast('Seleziona un file immagine per lo sfondo (JPG, PNG...).', 'error'); return; }
+    // Ridotta a 1920px in JPEG: deve passare anche agli schermi in rete (massimo 1 MB per campo).
+    readFileAsDataURL(file).then(function(dataUrl){
+      return downscaleDataURL(dataUrl, 1920, 'image/jpeg', 0.82).then(function(img){
+        return img.length > 900000 ? downscaleDataURL(dataUrl, 1280, 'image/jpeg', 0.72) : img;
+      });
+    }).then(function(img){
+      if(img.length > 950000 || img.indexOf('data:image/') !== 0){ throw new Error('troppo grande'); }
+      return averageColor(img).then(function(avg){
+        var first = !state.bgImage;
+        state.bgImage = img;
+        state.bgImageAvg = avg;
+        // Al primo caricamento lo sfondo si attiva su entrambi gli schermi.
+        if(first){
+          state.displayBgStyle = Object.assign(defaultDisplayBgStyle(), state.displayBgStyle || {});
+          ['stage', 'countdown'].forEach(function(sc){ var cur = displayBgStyle(sc); cur.image = true; state.displayBgStyle[sc] = cur; });
+        }
+        broadcastState();
+        renderDisplaySettings();
+        toast(first ? 'Sfondo caricato e attivato su Stage e Countdown.' : 'Sfondo aggiornato.', 'success');
+      });
+    }).catch(function(){ toast('Impossibile usare questa immagine come sfondo (file non leggibile o troppo grande).', 'error'); });
+  });
+  document.getElementById('bgimg-remove-btn').addEventListener('click', function(){
+    state.bgImage = null;
+    state.bgImageAvg = '#000000';
+    broadcastState();
+    renderDisplaySettings();
+  });
   document.getElementById('logo-picker-toggle').addEventListener('click', function(){
     var panel = document.getElementById('logo-picker');
     var open = panel.classList.toggle('hidden') === false;
@@ -4472,6 +4638,8 @@ function wireEvents(){
     state.display[displaySettingsScreen] = defaultDisplay()[displaySettingsScreen];
     state.displayBg = Object.assign(defaultDisplayBg(), state.displayBg || {});
     state.displayBg[displaySettingsScreen] = '#000000';
+    state.displayBgStyle = Object.assign(defaultDisplayBgStyle(), state.displayBgStyle || {});
+    state.displayBgStyle[displaySettingsScreen] = defaultDisplayBgStyle()[displaySettingsScreen];
     broadcastState();
     renderDisplaySettings();
     toast('Display ripristinato.', 'success');
