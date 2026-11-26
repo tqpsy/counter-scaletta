@@ -2989,7 +2989,9 @@ var midFitKey = '';
 function fitMiddle(screen){
   var mid = document.getElementById(screen + '-slot-center');
   var timer = document.getElementById(screen + '-timer');
-  var key = window.innerWidth + 'x' + window.innerHeight + '|' + timer.textContent.length + '|' + appliedLayoutKey + '|' + lastFitText + '|' + (state.stageMessage || '');
+  // Anche l'altezza libera al centro: quando compare il ritardo la riga "Prossimo"
+  // può andare a capo, la fascia in basso cresce e il centro si restringe.
+  var key = window.innerWidth + 'x' + window.innerHeight + '|' + mid.clientHeight + '|' + timer.textContent.length + '|' + appliedLayoutKey + '|' + lastFitText + '|' + (state.stageMessage || '');
   if(key === midFitKey) return;
   midFitKey = key;
   var fit = 1;
@@ -3003,7 +3005,7 @@ function fitMiddle(screen){
     });
     return h + gap * Math.max(0, n - 1) > mid.clientHeight + 1;
   }
-  while(fit > 0.4 && overflows()){
+  while(fit > 0.15 && overflows()){
     fit = Math.round((fit - 0.05) * 100) / 100;
     timer.style.setProperty('--fit', fit);
   }
