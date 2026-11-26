@@ -120,6 +120,9 @@
   body.ui-v2 #v2-root { display: block; }
   body.ui-v2 #dashboard-root > header, body.ui-v2 #dashboard-root > main, body.ui-v2 #dashboard-root > footer { display: none; }
   body.ui-v2 ::-webkit-scrollbar-thumb { background: #2a3142; }
+  /* Le finestre su sfondo bianco restano con il testo scuro: campi, menu e pulsanti
+     altrimenti ereditano il testo chiaro della v2 e non si leggono. */
+  body.ui-v2 #settings-modal > div, body.ui-v2 #share-modal > div, body.ui-v2 #recover-modal > div { color: #111827; }
   .v2 { --v2-panel: #12161f; --v2-panel2: #1a1f2b; --v2-line: #232a39; --v2-mut: #868fa2; --v2-dim: #555d70; }
   .v2 .hidden { display: none !important; }
   .v2 svg { flex-shrink: 0; }
@@ -1037,7 +1040,8 @@ var DISPLAY_ELEMENTS = {
     { key: 'message', label: 'Messaggio al relatore', show: true, pos: 'center', big: true },
     { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
     { key: 'topic', label: 'Titolo intervento', show: true, pos: 'center', big: true },
-    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
+    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true,
+      colors: { normal: '#34d399', warn: '#fde047', over: '#ef4444' } },
     { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
     { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
   ],
@@ -1046,11 +1050,34 @@ var DISPLAY_ELEMENTS = {
     { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
     { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
     { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
-    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
+    { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true,
+      colors: { normal: '#E8A33D', warn: '#fde047', over: '#ef4444' } },
     { key: 'target', label: 'Orario di inizio', show: true, pos: 'center' },
     { key: 'finish', label: 'Fine prevista (in tempo reale)', show: true, pos: 'center' }
   ]
 };
+// Colori dei numeri del timer: nome del colore e quando si usa, per schermo.
+var TIMER_COLOR_LABELS = {
+  stage: [
+    { key: 'normal', label: 'In tempo' },
+    { key: 'warn', label: 'Ultimi 2 minuti' },
+    { key: 'over', label: 'Fuori tempo' }
+  ],
+  countdown: [
+    { key: 'normal', label: 'Normale' },
+    { key: 'warn', label: 'Ultimi 2 minuti' },
+    { key: 'over', label: 'Ultimi 10 s e ritardo' }
+  ]
+};
+function isHexColor(v){ return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
+// Colore del timer scelto nelle impostazioni (o quello predefinito).
+function timerColor(screen, which){
+  var c = state.display && state.display[screen] && state.display[screen].timer;
+  var v = c && c.colors && c.colors[which];
+  if(isHexColor(v)) return v;
+  var def = DISPLAY_ELEMENTS[screen].filter(function(d){ return d.key === 'timer'; })[0];
+  return def.colors[which];
+}
 var DISPLAY_POSITIONS = [
   { value: 'tl', label: 'In alto a sinistra' },
   { value: 'top', label: 'In alto', big: true },
@@ -1069,6 +1096,7 @@ function defaultDisplay(){
     d[screen] = {};
     DISPLAY_ELEMENTS[screen].forEach(function(el){
       d[screen][el.key] = { show: el.show, size: 100, pos: el.pos };
+      if(el.colors){ d[screen][el.key].colors = Object.assign({}, el.colors); }
     });
   });
   return d;
@@ -1091,6 +1119,9 @@ function normalizeDisplay(d){
       var size = Number(cfg.size);
       if(size >= 30 && size <= maxSizeFor(el)) dst.size = size;
       if(isValidPosition(el, cfg.pos)) dst.pos = cfg.pos;
+      if(el.colors && cfg.colors){
+        Object.keys(el.colors).forEach(function(k){ if(isHexColor(cfg.colors[k])) dst.colors[k] = cfg.colors[k].toLowerCase(); });
+      }
     });
   });
   return out;
@@ -2856,6 +2887,7 @@ function tickStage(){
   if(stageTopicEl.textContent !== stageTitle){ stageTopicEl.textContent = stageTitle; lastFitText = null; }
   stageTopicEl.classList.toggle('hidden', !stageTitle);
   var timerEl = document.getElementById('stage-timer');
+  timerEl.style.color = ''; // i colori scelti valgono solo mentre il timer conta
   var statusEl = document.getElementById('stage-status');
   var nextEl = document.getElementById('stage-next');
   var barEl = document.getElementById('stage-progress-bar');
@@ -2886,12 +2918,13 @@ function tickStage(){
   fitName(nameEl, cur.speaker);
   statusEl.textContent = state.running ? (cur.type === 'flex' ? 'IN ONDA' : 'IN CORSO') : 'IN PAUSA';
   statusEl.className = statusClass + (state.running ? '' : ' disp-paused');
-  var colorClass = 'text-emerald-400', barColor = '#34d399';
+  var barColor = timerColor('stage', 'normal');
   var blink = '';
-  if(rem < 0){ colorClass = 'text-red-500'; barColor = '#ef4444'; blink = state.running ? ' blink-red' : ''; }
-  else if(rem <= 120){ colorClass = 'text-yellow-300'; barColor = '#fde047'; }
+  if(rem < 0){ barColor = timerColor('stage', 'over'); blink = state.running ? ' blink-red' : ''; }
+  else if(rem <= 120){ barColor = timerColor('stage', 'warn'); }
   setTimerText(timerEl, formatSecondsSigned(rem));
-  timerEl.className = TIMER_BASE_CLASS + colorClass + blink;
+  timerEl.className = TIMER_BASE_CLASS + blink;
+  timerEl.style.color = barColor;
   var dur = cur.duration * 60;
   barEl.style.width = (dur > 0 ? Math.min(100, Math.max(0, (1 - rem / dur) * 100)) : 100) + '%';
   barEl.style.background = barColor;
@@ -2918,6 +2951,7 @@ function tickCountdown(){
   if(remaining < -43200){ remaining += 86400; }
 
   var timerEl = document.getElementById('countdown-timer');
+  timerEl.style.color = '';
   var statusEl = document.getElementById('countdown-status');
   var labelEl = document.getElementById('countdown-target-label');
 
@@ -2938,7 +2972,8 @@ function tickCountdown(){
       statusEl.textContent = 'IN RITARDO';
       statusEl.className = 'disp-el disp-status disp-late';
       setTimerText(timerEl, '+' + formatCountdown(late));
-      timerEl.className = TIMER_BASE_CLASS + 'text-red-500';
+      timerEl.className = TIMER_BASE_CLASS;
+      timerEl.style.color = timerColor('countdown', 'over');
       return;
     }
     statusEl.textContent = 'L\'EVENTO È INIZIATO';
@@ -2950,11 +2985,12 @@ function tickCountdown(){
   statusEl.className = 'disp-el disp-status';
   statusEl.textContent = 'MANCANO';
   setTimerText(timerEl, formatCountdown(remaining));
-  var colorClass = 'text-accent';
+  var color = timerColor('countdown', 'normal');
   var blink = '';
-  if(remaining <= 10){ colorClass = 'text-red-500'; blink = ' blink-red'; }
-  else if(remaining <= 120){ colorClass = 'text-yellow-300'; }
-  timerEl.className = TIMER_BASE_CLASS + colorClass + blink;
+  if(remaining <= 10){ color = timerColor('countdown', 'over'); blink = ' blink-red'; }
+  else if(remaining <= 120){ color = timerColor('countdown', 'warn'); }
+  timerEl.className = TIMER_BASE_CLASS + blink;
+  timerEl.style.color = color;
 }
 
 /* ---------------------------------------------------------------- */
@@ -3668,9 +3704,23 @@ function renderDisplaySettings(){
         escapeHtml(def.label) + '</label>' +
       '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5' + off + '" aria-label="Dimensione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="size">' + sizeOpts + '</select>' +
       '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40' + off + '" aria-label="Posizione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="pos">' + posOpts + '</select>' +
+      (def.colors ? timerColorsHtml(screen, def, c, off) : '') +
       (def.key === 'logo' && !state.logo ? '<p class="w-full text-[11px] text-gray-400">Nessun logo caricato: carica un logo qui sopra per mostrarlo.</p>' : '') +
     '</div>';
   }).join('');
+}
+function timerColorsHtml(screen, def, c, off){
+  var defaults = def.colors;
+  var changed = Object.keys(defaults).some(function(k){ return c.colors[k] !== defaults[k].toLowerCase(); });
+  return '<div class="w-full flex flex-wrap items-center gap-x-4 gap-y-1.5 pl-6' + off + '">' +
+    '<span class="text-[11px] text-gray-500">Colore dei numeri:</span>' +
+    TIMER_COLOR_LABELS[screen].map(function(l){
+      return '<label class="inline-flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">' +
+        '<input type="color" value="' + c.colors[l.key] + '" data-display-key="' + def.key + '" data-display-field="color" data-color="' + l.key + '" aria-label="Colore timer: ' + escapeHtml(l.label) + '" class="w-7 h-7 p-0 border border-gray-200 rounded cursor-pointer bg-transparent" />' +
+        escapeHtml(l.label) + '</label>';
+    }).join('') +
+    (changed ? '<button type="button" data-timer-colors-reset="1" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Colori predefiniti</button>' : '') +
+  '</div>';
 }
 function onDisplaySettingChange(e){
   var el = e.target.closest('[data-display-key]');
@@ -3679,6 +3729,7 @@ function onDisplaySettingChange(e){
   var field = el.dataset.displayField;
   if(field === 'show'){ c.show = el.checked; }
   else if(field === 'size'){ c.size = parseInt(el.value, 10) || 100; }
+  else if(field === 'color'){ if(isHexColor(el.value)){ c.colors[el.dataset.color] = el.value.toLowerCase(); } }
   else { c.pos = el.value; }
   broadcastState();
   renderDisplaySettings();
@@ -4190,6 +4241,13 @@ function wireEvents(){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
   });
   document.getElementById('display-settings-rows').addEventListener('change', onDisplaySettingChange);
+  document.getElementById('display-settings-rows').addEventListener('click', function(e){
+    if(!e.target.closest('[data-timer-colors-reset]')) return;
+    var screen = displaySettingsScreen;
+    state.display[screen].timer.colors = Object.assign({}, defaultDisplay()[screen].timer.colors);
+    broadcastState();
+    renderDisplaySettings();
+  });
   Array.prototype.forEach.call(document.querySelectorAll('.display-tab'), function(tab){
     tab.addEventListener('click', function(){ displaySettingsScreen = tab.dataset.screen; renderDisplaySettings(); });
   });
