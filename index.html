@@ -65,6 +65,7 @@
   .next-early { color: #34d399; font-weight: 600; }
   #countdown-status.disp-started { color: #34d399; }
   .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
+  .disp-topic { font-size: calc(var(--s) * clamp(1rem, min(3vw, 4.5vh), 3.5rem)); font-weight: 500; line-height: 1.15; color: rgba(255,255,255,.75); max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
   .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
   .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * var(--fit) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
   .disp-progress { width: min(80vw, 70rem); height: calc(var(--s) * max(6px, 1.2vh)); border-radius: 9999px; background: rgba(255,255,255,.12); overflow: hidden; }
@@ -108,6 +109,7 @@
     #schedule-tbody td.c-act { grid-area: act; }
     #schedule-tbody td.c-act > div { opacity: 1; }
     #schedule-tbody td.c-name input { font-size: 15px; }
+    #schedule-tbody td.c-name input.title-input { font-size: 14px; }
     #schedule-tbody input.dur-part { width: 2.6rem; font-size: 16px; padding: 6px 0; background: #f3f4f6; }
     #schedule-tbody td[data-label]::before { content: attr(data-label); display: block; font-size: 10px; text-transform: uppercase; letter-spacing: .04em; color: #9ca3af; }
   }
@@ -149,6 +151,7 @@
   .v2-lbl.on { color: #34d399; } .v2-lbl.on .v2-dot { box-shadow: 0 0 0 5px rgba(52,211,153,.16); }
   .v2-lbl.paused { color: #fbbf24; }
   .v2-name { font-size: clamp(26px, 2.6vw, 46px); font-weight: 700; letter-spacing: -.01em; margin-top: 14px; line-height: 1.15; overflow-wrap: anywhere; }
+  .v2-topic { font-size: clamp(17px, 1.5vw, 26px); font-weight: 500; color: var(--v2-mut); margin-top: 4px; line-height: 1.25; overflow-wrap: anywhere; }
   .v2-timer-box { margin-top: 6px; }
   .v2-timer { font-size: clamp(96px, 12vw, 230px); line-height: .95; font-weight: 700; letter-spacing: -.03em; color: rgba(255,255,255,.55); white-space: nowrap; cursor: default; }
   .v2-timer.can-edit { cursor: pointer; }
@@ -176,6 +179,7 @@
   .v2-list .t { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px; color: var(--v2-dim); font-variant-numeric: tabular-nums; }
   .v2-list .n { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .v2-list .d { text-align: right; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 15px; color: var(--v2-dim); }
+  .v2-list .ti { color: var(--v2-dim); font-weight: 400; }
   .v2-list .fx { font-size: 11px; font-weight: 700; letter-spacing: .06em; color: #a78bfa; margin-left: 10px; }
   .v2-list li.done { opacity: .35; }
   .v2-list li.skipped .n { text-decoration: line-through; }
@@ -324,6 +328,7 @@
       <main class="v2-live">
         <div id="v2-status" class="v2-lbl"><span class="v2-dot"></span><span id="v2-status-text">IN ATTESA</span></div>
         <p id="v2-name" class="v2-name font-display">Nessun intervento attivo</p>
+        <p id="v2-topic" class="v2-topic hidden"></p>
         <div id="v2-timer-box" class="v2-timer-box">
           <div id="v2-timer" class="v2-timer font-mono-time" title="">00:00</div>
         </div>
@@ -452,11 +457,12 @@
 
         <!-- Su PC nome e timer stanno sulla stessa riga, così il pannello è più basso. -->
         <div class="xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-center xl:gap-x-6 xl:mb-4">
-        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-3 xl:mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
+        <p id="onair-name" class="font-display text-2xl sm:text-3xl font-semibold mb-1 xl:col-start-1 xl:row-start-1 truncate">Nessun intervento attivo</p>
+        <p id="onair-topic" class="hidden text-base sm:text-lg text-white/70 mb-2 xl:mb-1 xl:col-start-1 xl:row-start-2 truncate"></p>
 
-        <input id="onair-timer-input" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done" aria-label="Tempo rimanente" title="Scrivi il tempo rimanente (es. 5, 4:30 o 1:05:00), Invio per confermare, Esc per annullare" class="hidden w-full xl:w-56 font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 font-semibold tabular-nums bg-white/10 text-white rounded-lg px-2 mb-1 xl:mb-0 focus:outline-none focus:ring-2 focus:ring-accent" />
-        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
-        <p id="onair-planned" class="text-xs text-white/40 mb-3 xl:mb-0 xl:col-start-1 xl:row-start-2 xl:self-start"></p>
+        <input id="onair-timer-input" type="text" inputmode="numeric" autocomplete="off" enterkeyhint="done" aria-label="Tempo rimanente" title="Scrivi il tempo rimanente (es. 5, 4:30 o 1:05:00), Invio per confermare, Esc per annullare" class="hidden w-full xl:w-56 font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 font-semibold tabular-nums bg-white/10 text-white rounded-lg px-2 mb-1 xl:mb-0 focus:outline-none focus:ring-2 focus:ring-accent" />
+        <div id="onair-timer" class="font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1">00:00</div>
+        <p id="onair-planned" class="text-xs text-white/40 mt-1 mb-3 xl:mb-0 xl:col-start-1 xl:row-start-3 xl:self-start"></p>
         </div>
 
         <!-- Correzione al volo del tempo dell'intervento in onda: cambia la sua durata. -->
@@ -729,6 +735,7 @@
     <p id="stage-status" class="disp-el disp-status" data-el="status"></p>
     <p id="stage-message" class="disp-el disp-msg font-display" data-el="message" role="status" aria-live="assertive"></p>
     <p id="stage-name" class="disp-el disp-name font-display" data-el="name">In attesa di inizio</p>
+    <p id="stage-topic" class="disp-el disp-topic" data-el="topic"></p>
     <div id="stage-timer" class="disp-el disp-timer font-mono-time text-white/50" data-el="timer">00:00</div>
     <div id="stage-progress" class="disp-el disp-progress" data-el="progress"><div id="stage-progress-bar"></div></div>
     <p id="stage-next" class="disp-el disp-sub" data-el="next"></p>
@@ -1029,6 +1036,7 @@ var DISPLAY_ELEMENTS = {
     { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
     { key: 'message', label: 'Messaggio al relatore', show: true, pos: 'center', big: true },
     { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
+    { key: 'topic', label: 'Titolo intervento', show: true, pos: 'center', big: true },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true },
     { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
     { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
@@ -1742,6 +1750,10 @@ function itemSpanSeconds(it){ return itemGap(it) + it.duration * 60; }
 function totalPlannedSeconds(){
   return state.schedule.reduce(function(s, it){ return s + itemSpanSeconds(it); }, 0);
 }
+// Titolo dell'intervento (cosa fa il relatore), facoltativo e separato dal nome.
+function itemTitle(it){ return (it && typeof it.title === 'string') ? it.title.trim() : ''; }
+// Relatore e titolo su una riga, per le righe "Prossimo" e gli avvisi.
+function itemLabel(it){ var t = itemTitle(it); return it.speaker + (t ? ' \u2014 ' + t : ''); }
 function plannedStartSeconds(idx){
   var sec = hhmmToMinutes(state.eventStart) * 60;
   for(var i = 0; i < idx && i < state.schedule.length; i++){ sec += itemSpanSeconds(state.schedule[i]); }
@@ -2071,7 +2083,7 @@ function openRecoverModal(opts){
     var it = state.schedule[c.idx];
     var tag = c.idx === state.currentIndex ? ' <span class="text-xs font-semibold text-accent">in corso</span>' : '';
     return '<li class="flex items-center justify-between gap-3 px-3 py-2">' +
-      '<span class="min-w-0 truncate text-gray-900">' + escapeHtml(it.speaker) + tag + '</span>' +
+      '<span class="min-w-0 truncate text-gray-900">' + escapeHtml(itemLabel(it)) + tag + '</span>' +
       '<span class="shrink-0 tabular-nums text-gray-500">' + durationLabel(c.from) + ' \u2192 <span class="font-semibold text-gray-900">' + durationLabel(c.to) + '</span> <span class="text-red-600">\u2212' + c.cut + '\u00a0min</span></span>' +
     '</li>';
   }).join('');
@@ -2148,6 +2160,7 @@ function updateItemField(idx, field, value){
   var it = state.schedule[idx];
   if(!it) return;
   if(field === 'speaker'){ it.speaker = value || 'Intervento senza nome'; }
+  if(field === 'title'){ it.title = value; }
   if(field === 'duration'){
     var v = parseDuration(value);
     if(v === null){ toast('La durata deve essere maggiore di zero.', 'error'); }
@@ -2164,7 +2177,7 @@ function focusNextDurPart(el){
 }
 // Il nuovo intervento arriva con il nome già selezionato, pronto da scrivere.
 function addRow(){
-  var item = { id: uid(), speaker: 'Nuovo intervento', duration: 5, type: 'flex', accumulatedSeconds: 0, status: 'pending' };
+  var item = { id: uid(), speaker: 'Nuovo intervento', title: '', duration: 5, type: 'flex', accumulatedSeconds: 0, status: 'pending' };
   state.schedule.push(item);
   broadcastState();
   renderDashboard();
@@ -2206,7 +2219,7 @@ var historyLast = null;
 function contentSnapshot(){
   return {
     eventTitle: state.eventTitle, eventStart: state.eventStart, eventEnd: state.eventEnd,
-    schedule: state.schedule.map(function(it){ return { id: it.id, speaker: it.speaker, duration: it.duration, type: it.type, gapBefore: itemGap(it) }; })
+    schedule: state.schedule.map(function(it){ return { id: it.id, speaker: it.speaker, title: itemTitle(it), duration: it.duration, type: it.type, gapBefore: itemGap(it) }; })
   };
 }
 function snapshotKey(snap){ return JSON.stringify(snap); }
@@ -2235,7 +2248,7 @@ function applyContent(snap, resetTimers){
   state.eventEnd = snap.eventEnd;
   state.schedule = snap.schedule.map(function(s){
     var prev = !resetTimers && old[s.id];
-    return { id: s.id, speaker: s.speaker, duration: s.duration, type: s.type, gapBefore: s.gapBefore || 0,
+    return { id: s.id, speaker: s.speaker, title: s.title || '', duration: s.duration, type: s.type, gapBefore: s.gapBefore || 0,
       accumulatedSeconds: prev ? prev.accumulatedSeconds : 0, status: prev ? prev.status : 'pending' };
   });
   var newIdx = curId ? state.schedule.findIndex(function(it){ return it.id === curId; }) : -1;
@@ -2390,13 +2403,17 @@ function renderDashboard(){
   var typeBadgeEl = document.getElementById('onair-type-badge');
   var nextEl = document.getElementById('onair-next');
   var plannedEl = document.getElementById('onair-planned');
+  var topicEl = document.getElementById('onair-topic');
+  var curTitle = itemTitle(cur);
+  topicEl.textContent = curTitle;
+  topicEl.classList.toggle('hidden', !curTitle);
 
   if(finished){
     nameEl.textContent = 'Scaletta completata';
     statusEl.textContent = 'TERMINATO';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mb-0 font-semibold tabular-nums text-white/40 mb-1';
     typeBadgeEl.classList.add('hidden');
     nextEl.textContent = '—';
     plannedEl.textContent = '';
@@ -2405,9 +2422,9 @@ function renderDashboard(){
     statusEl.textContent = 'IN ATTESA';
     dotEl.className = 'w-2.5 h-2.5 rounded-full bg-gray-400';
     timerEl.textContent = total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00';
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mb-0 font-semibold tabular-nums text-white/60 mb-1';
     typeBadgeEl.classList.add('hidden');
-    setNextLine(nextEl, total > 0 ? state.schedule[0].speaker : '—', total > 0 ? 0 : -1);
+    setNextLine(nextEl, total > 0 ? itemLabel(state.schedule[0]) : '—', total > 0 ? 0 : -1);
     plannedEl.textContent = '';
   } else {
     nameEl.textContent = cur.speaker;
@@ -2417,12 +2434,12 @@ function renderDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     typeBadgeEl.classList.remove('hidden');
     typeBadgeEl.innerHTML = (cur.type === 'flex' ? micIconSVG + ' Relatore' : filmIconSVG + ' Blocco fisso');
     typeBadgeEl.className = 'inline-flex items-center gap-1.5 text-xs font-medium px-2 py-1 rounded-md ' + (cur.type === 'flex' ? 'bg-sky-400/15 text-sky-300' : 'bg-violet-400/15 text-violet-300');
     var nextItem = state.schedule[state.currentIndex+1];
-    setNextLine(nextEl, nextItem ? (nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento', nextItem ? state.currentIndex+1 : -1);
+    setNextLine(nextEl, nextItem ? (itemLabel(nextItem) + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento', nextItem ? state.currentIndex+1 : -1);
     plannedEl.textContent = 'Durata pianificata: ' + formatSecondsSigned(cur.duration*60);
   }
 
@@ -2545,6 +2562,8 @@ function patchScheduleRow(tr, it, idx, v){
   if(typeBtn.className !== typeBtnClass){ typeBtn.className = typeBtnClass; typeBtn.innerHTML = v.typeLabel; }
   var speakerInput = cells[2].firstElementChild;
   if(document.activeElement !== speakerInput && speakerInput.value !== it.speaker){ speakerInput.value = it.speaker; }
+  var titleInput = cells[2].querySelector('[data-action="edit-title"]');
+  if(titleInput && document.activeElement !== titleInput && titleInput.value !== itemTitle(it)){ titleInput.value = itemTitle(it); }
   var durParts = durationParts(it.duration);
   DUR_PARTS.forEach(function(k, i){
     var input = cells[3].querySelector('[data-action="edit-dur-' + k + '"]');
@@ -2611,7 +2630,8 @@ function renderScheduleTable(){
           '</button>' +
         '</td>' +
         '<td class="c-name px-3 py-2.5 min-w-[160px]">' +
-          '<input type="text" enterkeyhint="next" value="' + escapeHtml(it.speaker) + '" data-action="edit-speaker" data-idx="' + idx + '" class="w-full bg-transparent text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />' +
+          '<input type="text" enterkeyhint="next" value="' + escapeHtml(it.speaker) + '" data-action="edit-speaker" data-idx="' + idx + '" placeholder="Relatore" aria-label="Relatore" class="w-full bg-transparent text-sm font-medium text-gray-800 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />' +
+          '<input type="text" enterkeyhint="next" value="' + escapeHtml(itemTitle(it)) + '" data-action="edit-title" data-idx="' + idx + '" placeholder="Titolo intervento" aria-label="Titolo intervento" class="title-input w-full bg-transparent text-xs text-gray-500 placeholder:text-gray-300 focus:outline-none focus:bg-white focus:ring-1 focus:ring-accent rounded px-1 py-0.5" />' +
         '</td>' +
         '<td class="c-dur px-3 py-2.5 whitespace-nowrap" data-label="Durata">' +
           durationFieldsHtml(it, idx) +
@@ -2652,7 +2672,7 @@ function tickDashboard(){
     timerEl.textContent = formatSecondsSigned(rem);
     var colorClass = 'text-emerald-400';
     if(rem < 0){ colorClass = 'text-red-500'; } else if(rem <= 120){ colorClass = 'text-amber-400'; }
-    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-2 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
+    timerEl.className = 'font-mono-time text-5xl sm:text-6xl xl:text-7xl xl:leading-none xl:col-start-2 xl:row-start-1 xl:row-span-3 xl:mb-0 font-semibold tabular-nums mb-1 ' + colorClass + (rem < 0 && state.running ? ' blink-red' : '');
     var effCell = document.querySelector('#schedule-tbody [data-eff="' + state.currentIndex + '"]');
     if(effCell){
       var elapsed = getItemElapsedSeconds(state.currentIndex);
@@ -2831,6 +2851,10 @@ function tickStage(){
   var finished = state.currentIndex >= total && total > 0;
   var cur = (state.currentIndex >= 0 && state.currentIndex < total) ? state.schedule[state.currentIndex] : null;
   var nameEl = document.getElementById('stage-name');
+  var stageTopicEl = document.getElementById('stage-topic');
+  var stageTitle = itemTitle(cur);
+  if(stageTopicEl.textContent !== stageTitle){ stageTopicEl.textContent = stageTitle; lastFitText = null; }
+  stageTopicEl.classList.toggle('hidden', !stageTitle);
   var timerEl = document.getElementById('stage-timer');
   var statusEl = document.getElementById('stage-status');
   var nextEl = document.getElementById('stage-next');
@@ -2854,7 +2878,7 @@ function tickStage(){
     statusEl.className = statusClass;
     setTimerText(timerEl, total > 0 ? formatSecondsSigned(state.schedule[0].duration*60) : '00:00');
     timerEl.className = TIMER_BASE_CLASS + 'text-white/50';
-    setNextLine(nextEl, total > 0 ? ('Si parte con: ' + state.schedule[0].speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '', total > 0 ? 0 : -1);
+    setNextLine(nextEl, total > 0 ? ('Si parte con: ' + itemLabel(state.schedule[0]) + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(0))) : '', total > 0 ? 0 : -1);
     barEl.style.width = '0';
     return;
   }
@@ -2872,7 +2896,7 @@ function tickStage(){
   barEl.style.width = (dur > 0 ? Math.min(100, Math.max(0, (1 - rem / dur) * 100)) : 100) + '%';
   barEl.style.background = barColor;
   var nextItem = state.schedule[state.currentIndex+1];
-  setNextLine(nextEl, nextItem ? ('Prossimo: ' + nextItem.speaker + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta', nextItem ? state.currentIndex+1 : -1);
+  setNextLine(nextEl, nextItem ? ('Prossimo: ' + itemLabel(nextItem) + ' · ore\u00a0' + secondsToClock(plannedStartSeconds(state.currentIndex+1)) + ' · ' + durationLabel(nextItem.duration)) : 'Ultimo intervento della scaletta', nextItem ? state.currentIndex+1 : -1);
 }
 
 /* ---------------------------------------------------------------- */
@@ -3069,7 +3093,7 @@ function buildExtractionPrompt(firstPage, lastPage, totalPages){
     pageInfo = (firstPage === lastPage ? ' L\'immagine è la pagina ' + firstPage : ' Le immagini sono le pagine da ' + firstPage + ' a ' + lastPage) + ' di ' + totalPages + ' della scaletta, in ordine: estrai solo i blocchi che INIZIANO in queste pagine.' +
       (firstPage > 1 ? ' Il testo in cima alla prima immagine senza un proprio orario o titolo è la continuazione di un blocco della pagina precedente: non crearne una riga. Se nessun blocco inizia in queste pagine rispondi {"items":[]}.' : '');
   }
-  return 'Analizza gli allegati: sono la scaletta (rundown) di un evento dal vivo, che può essere una tabella oppure un copione in cui ogni blocco è introdotto da orario e durata (es. "21.14’ (3’)", "22 25’ (5’)" o solo "21 (14’)" = 21:00, 14 minuti; in un copione ogni blocco con il suo orario è UNA riga, e le indicazioni di regia e le battute al suo interno non vanno restituite come righe separate).' + pageInfo + ' Individua OGNI riga/blocco del programma, dall\'inizio alla fine, nell\'ordine in cui compaiono: non saltare nessuna riga, non unire più righe in una sola, non riassumere, e includi anche pause, video, sigle, saluti, premiazioni e cambi palco. Se una riga ha più relatori, restituiscila comunque come una sola voce con tutti i nomi. Per ciascuno restituisci: "speaker" (nome del relatore oppure un titolo breve del blocco, al massimo 60 caratteri), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata in minuti, numero intero: usa quella indicata, altrimenti la differenza con l\'orario del blocco successivo, altrimenti una stima), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","start":"09:00","duration":15,"type":"flex"}]}';
+  return 'Analizza gli allegati: sono la scaletta (rundown) di un evento dal vivo, che può essere una tabella oppure un copione in cui ogni blocco è introdotto da orario e durata (es. "21.14’ (3’)", "22 25’ (5’)" o solo "21 (14’)" = 21:00, 14 minuti; in un copione ogni blocco con il suo orario è UNA riga, e le indicazioni di regia e le battute al suo interno non vanno restituite come righe separate).' + pageInfo + ' Individua OGNI riga/blocco del programma, dall\'inizio alla fine, nell\'ordine in cui compaiono: non saltare nessuna riga, non unire più righe in una sola, non riassumere, e includi anche pause, video, sigle, saluti, premiazioni e cambi palco. Se una riga ha più relatori, restituiscila comunque come una sola voce con tutti i nomi. Per ciascuno restituisci: "speaker" (nome del relatore o dei relatori; se il blocco non ha un relatore, un titolo breve del blocco; al massimo 60 caratteri), "title" (titolo o argomento dell\'intervento, cioè cosa fa il relatore, al massimo 80 caratteri; stringa vuota se non indicato o se "speaker" è già il titolo del blocco), "start" (orario di inizio nel formato HH:MM se visibile, altrimenti stringa vuota), "duration" (durata in minuti, numero intero: usa quella indicata, altrimenti la differenza con l\'orario del blocco successivo, altrimenti una stima), "type" ("flex" se il blocco è l\'intervento di un relatore/persona/ospite, "fixed" se è un video, una sigla, un cambio palco, una pausa o qualsiasi elemento non regolabile). Rispondi SOLO con un oggetto JSON valido, senza testo aggiuntivo, senza blocchi di codice markdown, nel formato esatto: {"items":[{"speaker":"Nome Relatore","title":"Titolo dell\'intervento","start":"09:00","duration":15,"type":"flex"}]}';
 }
 
 function safeReadJson(res){
@@ -3280,6 +3304,7 @@ function applyImportedItems(items){
     return {
       id: uid(),
       speaker: (raw.speaker && String(raw.speaker).trim()) || 'Intervento senza nome',
+      title: raw.title ? String(raw.title).trim() : '',
       duration: (isNaN(d) || d <= 0) ? 5 : d,
       type: raw.type === 'fixed' ? 'fixed' : 'flex',
       accumulatedSeconds: 0,
@@ -4040,6 +4065,10 @@ function renderV2(){
   document.getElementById('v2-status-text').textContent = statusText;
   statusEl.className = 'v2-lbl' + (cur ? (state.running ? ' on' : ' paused') : '');
   document.getElementById('v2-name').textContent = finished ? 'Scaletta completata' : (cur ? cur.speaker : (total ? 'Nessun intervento attivo' : 'Scaletta vuota'));
+  var v2Topic = document.getElementById('v2-topic');
+  var v2Title = finished ? '' : itemTitle(cur);
+  v2Topic.textContent = v2Title;
+  v2Topic.classList.toggle('hidden', !v2Title);
 
   var play = document.getElementById('v2-play');
   play.innerHTML = state.running
@@ -4071,7 +4100,7 @@ function renderV2List(cur, finished){
       cum += it.duration * 60;
       var cls = it.status === 'done' ? 'done' : (isSkipped(it, idx) ? 'done skipped' : (idx === state.currentIndex ? 'cur' : (idx === nextIdx ? 'nx' : '')));
       return '<li class="' + cls + '"><span class="t">' + start + '</span>' +
-        '<span class="n">' + escapeHtml(it.speaker) + (it.type === 'flex' ? '' : '<span class="fx">FISSO</span>') + '</span>' +
+        '<span class="n">' + escapeHtml(it.speaker) + (itemTitle(it) ? '<span class="ti"> \u2014 ' + escapeHtml(itemTitle(it)) + '</span>' : '') + (it.type === 'flex' ? '' : '<span class="fx">FISSO</span>') + '</span>' +
         '<span class="d">' + formatSecondsSigned(it.duration * 60) + '</span></li>';
     }).join('');
   }
@@ -4115,7 +4144,7 @@ function tickV2(){
     text = '00:00'; frac = 1; barColor = 'rgba(255,255,255,.25)';
   } else {
     text = total > 0 ? formatSecondsSigned(state.schedule[0].duration * 60) : '00:00';
-    if(total > 0){ metaL = 'si parte con ' + state.schedule[0].speaker + ' alle ' + secondsToClock(plannedStartSeconds(0)); }
+    if(total > 0){ metaL = 'si parte con ' + itemLabel(state.schedule[0]) + ' alle ' + secondsToClock(plannedStartSeconds(0)); }
   }
   var html = v2TimerHtml(text);
   if(html !== v2TimerHtmlLast){ timer.innerHTML = html; v2TimerHtmlLast = html; }
@@ -4349,6 +4378,7 @@ function wireEvents(){
     var idx = parseInt(el.dataset.idx, 10);
     var action = el.dataset.action;
     if(action === 'edit-speaker'){ updateItemField(idx, 'speaker', el.value.trim()); }
+    else if(action === 'edit-title'){ updateItemField(idx, 'title', el.value.trim()); }
     else if(action === 'edit-start'){ updateItemClock(idx, 'start', el.value); }
     else if(action === 'edit-end'){ updateItemClock(idx, 'end', el.value); }
     else if(action.indexOf('edit-dur-') === 0){
@@ -4376,7 +4406,13 @@ function wireEvents(){
     var el = e.target;
     if(e.key !== 'Enter' || !el.dataset) return;
     if(el.dataset.action === 'edit-speaker'){
-      // Dal nome si passa direttamente alle ore della durata.
+      // Dal nome si passa al titolo, dal titolo alle ore della durata.
+      e.preventDefault();
+      var titleField = el.closest('tr').querySelector('[data-action="edit-title"]');
+      if(titleField){ titleField.focus(); }
+      return;
+    }
+    if(el.dataset.action === 'edit-title'){
       e.preventDefault();
       var hours = el.closest('tr').querySelector('[data-action="edit-dur-h"]');
       if(hours){ hours.focus(); }
