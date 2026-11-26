@@ -635,7 +635,7 @@
           <li>Carica la scaletta (PDF o foto) oppure aggiungi le righe a mano. Durata, inizio e fine di ogni riga si possono modificare: le righe successive si spostano, quelle prima restano come sono.</li>
           <li>Play (o la barra spaziatrice) avvia l'intervento; alla prima partenza gli orari della scaletta si allineano all'ora reale. I blocchi "Fisso" a zero passano da soli al successivo, in pausa.</li>
           <li>Con -1/+1/+5 min o Modifica correggi al volo il tempo dell'intervento in onda. Annulla, Ripeti e Ripristina iniziale rimediano agli errori.</li>
-          <li>"Auto-Balance" e "Adatta" dividono il taglio in modo equo tra i blocchi "Relatore" rimasti (intervento in corso compreso), con un'anteprima da confermare. I blocchi "Fisso" restano invariati.</li>
+          <li>"Auto-Balance" e "Adatta" tolgono tempo ai blocchi "Relatore" rimasti (intervento in corso compreso) in proporzione alla loro durata, con un'anteprima da confermare. I blocchi "Fisso" restano invariati.</li>
           <li>Stage e Countdown si aggiornano da soli su questo PC, anche senza internet. Per altri PC, telefoni o proiettori usa "Schermi in rete" (icona Wi-Fi in alto), che richiede internet.</li>
           <li>Scaletta, logo e chiave API restano salvati solo su questo dispositivo.</li>
         </ul>
@@ -2234,38 +2234,53 @@ function selectCurrent(idx){
 }
 
 // Piano di recupero, senza modificare la scaletta: il tempo da togliere si divide
-// in modo equo tra l'intervento "relatore" in corso (sul tempo che gli resta) e i
-// blocchi "relatore" successivi, a passi di 1 minuto e sempre dal più lungo, così
-// tutti scendono insieme e nessuno viene svuotato da solo. Ognuno conserva almeno
-// MIN_ITEM_SECONDS. I blocchi "fisso" non si toccano mai.
+// tra l'intervento "relatore" in corso e i blocchi "relatore" successivi in
+// proporzione alla durata prevista di ciascuno (chi ha 30 min perde il doppio di
+// chi ne ha 15), a minuti interi. Ognuno conserva almeno MIN_ITEM_SECONDS di tempo
+// rimanente: se un intervento arriva al minimo, la sua parte va agli altri.
+// I blocchi "fisso" non si toccano mai.
 function planRecovery(seconds){
   var plan = { changes: [], applied: 0 };
   if(seconds <= 0.5) return plan;
   var needed = Math.ceil((seconds - 0.5) / 60);
   var minMinutes = MIN_ITEM_SECONDS / 60;
-  var cuts = {};
-  var budget = {};
   var targets = [];
   state.schedule.forEach(function(it, idx){
     if(it.type !== 'flex' || it.status === 'done') return;
-    if(idx === state.currentIndex && it.status === 'active'){
-      budget[idx] = getRemainingSeconds(idx) / 60;
-      targets.push(idx);
-    } else if(idx > state.currentIndex){
-      budget[idx] = it.duration;
-      targets.push(idx);
-    }
+    var left;
+    if(idx === state.currentIndex && it.status === 'active'){ left = getRemainingSeconds(idx) / 60; }
+    else if(idx > state.currentIndex){ left = it.duration; }
+    else return;
+    var cap = Math.max(0, Math.floor(left - minMinutes));
+    if(cap > 0 && it.duration > 0){ targets.push({ idx: idx, weight: it.duration, cap: cap, share: 0 }); }
   });
-  while(needed > 0){
-    var best = -1;
-    targets.forEach(function(idx){
-      var d = budget[idx] - (cuts[idx] || 0);
-      if(d - 1 >= minMinutes && (best === -1 || d > budget[best] - (cuts[best] || 0))){ best = idx; }
-    });
-    if(best === -1) break;
-    cuts[best] = (cuts[best] || 0) + 1;
-    needed -= 1;
+  var capTotal = targets.reduce(function(t, x){ return t + x.cap; }, 0);
+  needed = Math.min(needed, capTotal);
+  // Quote proporzionali alla durata: chi supera il proprio massimo si ferma lì
+  // e il resto si ridivide, sempre in proporzione, tra gli altri.
+  var open = targets.slice();
+  var rest = needed;
+  while(open.length && rest > 1e-9){
+    var w = open.reduce(function(t, x){ return t + x.weight; }, 0);
+    var over = open.filter(function(x){ return rest * x.weight / w >= x.cap; });
+    if(!over.length){
+      open.forEach(function(x){ x.share = rest * x.weight / w; });
+      break;
+    }
+    over.forEach(function(x){ x.share = x.cap; rest -= x.cap; });
+    open = open.filter(function(x){ return over.indexOf(x) === -1; });
   }
+  // A minuti interi: si arrotonda per difetto e i minuti mancanti vanno a chi
+  // ha la parte decimale più alta (a parità, all'intervento più lungo).
+  var cuts = {};
+  var given = 0;
+  targets.forEach(function(x){ x.cut = Math.min(x.cap, Math.floor(x.share + 1e-9)); given += x.cut; });
+  targets.slice().sort(function(a, b){
+    return (b.share - b.cut) - (a.share - a.cut) || b.weight - a.weight || a.idx - b.idx;
+  }).forEach(function(x){
+    if(given < needed && x.cut < x.cap){ x.cut += 1; given += 1; }
+  });
+  targets.forEach(function(x){ if(x.cut > 0) cuts[x.idx] = x.cut; });
   Object.keys(cuts).map(Number).sort(function(a, b){ return a - b; }).forEach(function(idx){
     var it = state.schedule[idx];
     plan.changes.push({ id: it.id, idx: idx, cut: cuts[idx], from: it.duration, to: it.duration - cuts[idx] });
@@ -2328,7 +2343,7 @@ function actionAutoBalance(){
   if(plan.applied === 0){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
   openRecoverModal({
     title: 'Auto-Balance',
-    intro: 'Ritardo da recuperare: ' + formatSecondsSigned(overrun) + '. Il tempo si divide in modo equo tra i relatori rimasti, intervento in corso compreso. I blocchi fissi non cambiano.',
+    intro: 'Ritardo da recuperare: ' + formatSecondsSigned(overrun) + '. Il tempo si toglie ai relatori rimasti (intervento in corso compreso) in proporzione alla loro durata. I blocchi fissi non cambiano.',
     plan: plan,
     target: overrun,
     onApplied: function(applied){ state.recoveredSeconds = (state.recoveredSeconds || 0) + applied; },
@@ -2356,7 +2371,7 @@ function actionApplyEndTime(){
   if(plan.applied === 0){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
   openRecoverModal({
     title: 'Adatta all\'orario di fine',
-    intro: 'Per finire alle ' + state.eventEnd + ' bisogna togliere ' + formatSecondsSigned(diff) + '. Il tempo si divide in modo equo tra i relatori rimasti, intervento in corso compreso. I blocchi fissi non cambiano.',
+    intro: 'Per finire alle ' + state.eventEnd + ' bisogna togliere ' + formatSecondsSigned(diff) + '. Il tempo si toglie ai relatori rimasti (intervento in corso compreso) in proporzione alla loro durata. I blocchi fissi non cambiano.',
     plan: plan,
     target: diff,
     done: 'Scaletta adattata al nuovo orario di fine (' + state.eventEnd + ').'
