@@ -120,6 +120,9 @@
   body.ui-v2 #v2-root { display: block; }
   body.ui-v2 #dashboard-root > header, body.ui-v2 #dashboard-root > main, body.ui-v2 #dashboard-root > footer { display: none; }
   body.ui-v2 ::-webkit-scrollbar-thumb { background: #2a3142; }
+  /* Le finestre su sfondo bianco restano con il testo scuro: campi, menu e pulsanti
+     altrimenti ereditano il testo chiaro della v2 e non si leggono. */
+  body.ui-v2 #settings-modal > div, body.ui-v2 #share-modal > div, body.ui-v2 #recover-modal > div { color: #111827; }
   .v2 { --v2-panel: #12161f; --v2-panel2: #1a1f2b; --v2-line: #232a39; --v2-mut: #868fa2; --v2-dim: #555d70; }
   .v2 .hidden { display: none !important; }
   .v2 svg { flex-shrink: 0; }
