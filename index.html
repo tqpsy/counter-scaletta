@@ -4026,13 +4026,15 @@ function renderDisplaySettings(){
     var rowOpts = !def.grid ? '' : [1, 2, 3, 4].map(function(r){ return '<option value="' + r + '"' + (r === c.row ? ' selected' : '') + '>Riga ' + r + '</option>'; }).join('');
     var off = c.show ? '' : ' opacity-40';
     return '<div class="flex flex-wrap items-center gap-x-3 gap-y-1.5 py-2">' +
-      '<label class="flex items-center gap-2 text-sm text-gray-800 flex-1 min-w-[10rem] cursor-pointer">' +
+      '<label class="flex items-center gap-2 text-sm text-gray-800 flex-1 ' + (def.grid ? 'min-w-[7rem]' : 'min-w-[10rem]') + ' cursor-pointer">' +
         '<input type="checkbox" class="w-4 h-4 accent-[#E8A33D]" data-display-key="' + def.key + '" data-display-field="show"' + (c.show ? ' checked' : '') + ' />' +
         escapeHtml(def.label) + '</label>' +
       '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5' + off + '" aria-label="Dimensione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="size">' + sizeOpts + '</select>' +
       (def.grid
-        ? '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40' + off + '" aria-label="Colonna ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="col">' + colOpts + '</select>' +
-          '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5' + off + '" aria-label="Riga ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="row">' + rowOpts + '</select>'
+        ? '<div class="flex flex-nowrap items-center gap-2' + off + '">' +
+            '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-[8.5rem]" aria-label="Colonna ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="col">' + colOpts + '</select>' +
+            '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5" aria-label="Riga ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="row">' + rowOpts + '</select>' +
+          '</div>'
         : '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40' + off + '" aria-label="Posizione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="pos">' + posOpts + '</select>') +
       (def.text ? textColorHtml(def, c, off) : '') +
       (def.key === 'timer' ? timerColorsHtml(screen, def, c, off) : '') +
