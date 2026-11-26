@@ -42,6 +42,20 @@
      la scala scelta nelle impostazioni, --fit la riduzione automatica. */
   .disp-root { height: 100vh; height: 100dvh; background: #000; color: #fff; display: flex; flex-direction: column; overflow: hidden; padding: max(12px, 2.5vh) max(12px, 2.5vw); box-sizing: border-box; }
   .disp-root.hidden { display: none; }
+  /* Sfondo chiaro scelto nelle impostazioni: i testi passano allo scuro per restare leggibili. */
+  .disp-root.disp-light { color: #0b0b0b; }
+  .disp-light .disp-clock, .disp-light .disp-title { color: rgba(0,0,0,.6); }
+  .disp-light .disp-title-lg { color: rgba(0,0,0,.85); }
+  .disp-light .disp-status { color: rgba(0,0,0,.65); }
+  .disp-light .disp-topic { color: rgba(0,0,0,.75); }
+  .disp-light .disp-sub { color: rgba(0,0,0,.7); }
+  .disp-light .disp-progress { background: rgba(0,0,0,.12); }
+  .disp-light .disp-fs-btn, body.disp-light-page .disp-fs-btn { background: rgba(0,0,0,.12); color: #0b0b0b; }
+  .disp-light .text-white\/30 { color: rgba(0,0,0,.3); }
+  .disp-light .text-white\/50 { color: rgba(0,0,0,.5); }
+  .disp-light .next-late { color: #dc2626; }
+  .disp-light .next-early { color: #059669; }
+  #logo-picker-canvas { cursor: crosshair; image-rendering: auto; }
   .disp-root.disp-hide-cursor, .disp-root.disp-hide-cursor * { cursor: none; }
   .disp-band { display: flex; align-items: flex-start; gap: 1rem; }
   .disp-band[data-band="bottom"] { align-items: flex-end; }
@@ -860,6 +874,41 @@
           </div>
         </div>
         <p class="text-xs text-gray-500 mb-3">Scegli cosa mostrare, quanto grande e dove. Le modifiche si vedono subito sui display aperti.</p>
+        <div class="flex flex-wrap items-center gap-x-3 gap-y-2 py-2 border-t border-gray-100">
+          <span class="text-sm text-gray-800 flex-1 min-w-[10rem]">Colore dello sfondo</span>
+          <input type="color" id="display-bg-input" value="#000000" aria-label="Colore dello sfondo" class="w-9 h-9 p-0 border border-gray-200 rounded cursor-pointer bg-transparent" />
+          <input type="text" id="display-bg-hex" maxlength="7" spellcheck="false" autocomplete="off" aria-label="Codice colore dello sfondo" class="w-24 text-xs font-mono-time border border-gray-200 rounded-lg px-2 py-1.5" />
+          <button type="button" id="display-bg-reset" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Nero</button>
+        </div>
+        <div class="pb-3">
+          <div class="flex flex-wrap items-center gap-2">
+            <button type="button" id="logo-picker-toggle" class="inline-flex items-center gap-1.5 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors disabled:opacity-40 disabled:cursor-not-allowed">
+              <svg viewBox="0 0 24 24" class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/></svg>
+              Prendi il colore dal logo
+            </button>
+            <button type="button" id="screen-eyedropper-btn" class="hidden inline-flex items-center gap-1.5 text-xs font-medium border border-gray-200 hover:border-accent hover:text-accent px-3 py-2 rounded-lg transition-colors">Contagocce sullo schermo</button>
+          </div>
+          <p id="logo-picker-nologo" class="hidden text-[11px] text-gray-400 mt-1.5">Carica un logo qui sopra per prenderne i colori.</p>
+          <div id="logo-picker" class="hidden mt-3 rounded-lg border border-gray-200 p-3">
+            <p class="text-[11px] text-gray-500 mb-2">Passa sopra il logo per vedere il colore, clic per catturarlo. Oppure scegli uno dei colori principali del logo.</p>
+            <div class="rounded-md overflow-hidden flex items-center justify-center" style="background-image: linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%),linear-gradient(45deg,#e5e7eb 25%,transparent 25%,transparent 75%,#e5e7eb 75%); background-size: 16px 16px; background-position: 0 0, 8px 8px;">
+              <canvas id="logo-picker-canvas" class="block max-w-full" width="10" height="10" aria-label="Logo: clic per prendere il colore"></canvas>
+            </div>
+            <div id="logo-picker-swatches" class="flex flex-wrap gap-1.5 mt-2"></div>
+            <div class="flex flex-wrap items-center gap-2 mt-3">
+              <span id="picked-swatch" class="w-9 h-9 rounded border border-gray-200 shrink-0" style="background:#000000"></span>
+              <div class="text-xs leading-tight min-w-[8rem]">
+                <p class="font-mono-time font-semibold text-gray-900" id="picked-hex">—</p>
+                <p class="font-mono-time text-gray-500" id="picked-rgb">Nessun colore catturato</p>
+              </div>
+              <div class="flex flex-wrap gap-1.5 ml-auto">
+                <button type="button" data-picked-use="bg" class="picked-use text-xs font-semibold bg-ink text-white px-3 py-1.5 rounded-lg disabled:opacity-40" disabled>Usa come sfondo</button>
+                <button type="button" data-picked-use="timer" class="picked-use text-xs font-semibold border border-gray-200 hover:border-accent px-3 py-1.5 rounded-lg disabled:opacity-40" disabled>Usa per i numeri</button>
+                <button type="button" data-picked-use="copy" class="picked-use text-xs font-semibold border border-gray-200 hover:border-accent px-3 py-1.5 rounded-lg disabled:opacity-40" disabled>Copia</button>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="display-settings-rows" class="divide-y divide-gray-100 border-y border-gray-100"></div>
         <button id="display-reset-btn" type="button" class="text-xs font-medium text-gray-400 hover:text-red-600 mt-2 transition-colors">Ripristina predefiniti</button>
       </div>
@@ -1023,7 +1072,8 @@ function defaultState(){
     activeStartEpoch: null,
     recoveredSeconds: 0,
     stageMessage: '',
-    display: defaultDisplay()
+    display: defaultDisplay(),
+    displayBg: defaultDisplayBg()
   };
 }
 
@@ -1069,6 +1119,26 @@ var TIMER_COLOR_LABELS = {
     { key: 'over', label: 'Ultimi 10 s e ritardo' }
   ]
 };
+// Colore di sfondo di Stage e Countdown (nero se non scelto).
+function defaultDisplayBg(){ return { stage: '#000000', countdown: '#000000' }; }
+function displayBg(screen){
+  var v = state.displayBg && state.displayBg[screen];
+  return isHexColor(v) ? v.toLowerCase() : '#000000';
+}
+function hexToRgb(hex){ var n = parseInt(hex.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
+function rgbToHex(r, g, b){ return '#' + [r, g, b].map(function(v){ return ('0' + v.toString(16)).slice(-2); }).join(''); }
+// Luminanza relativa (WCAG): sopra 0,4 lo sfondo è chiaro e i testi diventano scuri.
+function isLightColor(hex){
+  var lin = hexToRgb(hex).map(function(v){ v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); });
+  return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2] > 0.4;
+}
+function applyDisplayBg(screen){
+  var root = document.getElementById(screen + '-root');
+  var bg = displayBg(screen);
+  if(root.style.backgroundColor !== bg){ root.style.backgroundColor = bg; }
+  root.classList.toggle('disp-light', isLightColor(bg));
+  document.body.classList.toggle('disp-light-page', isLightColor(bg)); // pulsante "Schermo intero", fuori dal display
+}
 function isHexColor(v){ return typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v); }
 // Colore del timer scelto nelle impostazioni (o quello predefinito).
 function timerColor(screen, which){
@@ -2862,6 +2932,7 @@ function renderStage(){
   renderDisplayLogo('stage-logo');
   document.getElementById('stage-event-title').textContent = state.eventTitle || '';
   applyDisplayLayout('stage');
+  applyDisplayBg('stage');
   renderStageMessage();
   tickStage();
 }
@@ -2939,6 +3010,7 @@ function renderCountdown(){
   renderDisplayLogo('countdown-logo');
   document.getElementById('countdown-event-title').textContent = state.eventTitle || '';
   applyDisplayLayout('countdown');
+  applyDisplayBg('countdown');
   tickCountdown();
 }
 function formatCountdown(sec){ return formatTimer(sec); }
@@ -3689,6 +3761,17 @@ function renderDisplaySettings(){
     tab.className = 'display-tab px-3 py-1.5 rounded-md ' + (active ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800');
     tab.setAttribute('aria-selected', active ? 'true' : 'false');
   });
+  var bg = displayBg(screen);
+  var bgInput = document.getElementById('display-bg-input');
+  if(bgInput.value !== bg){ bgInput.value = bg; }
+  var bgHex = document.getElementById('display-bg-hex');
+  if(document.activeElement !== bgHex){ bgHex.value = bg; }
+  document.getElementById('display-bg-reset').classList.toggle('hidden', bg === '#000000');
+  document.getElementById('logo-picker-toggle').disabled = !state.logo;
+  document.getElementById('logo-picker-nologo').classList.toggle('hidden', !!state.logo);
+  if(!state.logo){ document.getElementById('logo-picker').classList.add('hidden'); }
+  else if(!document.getElementById('logo-picker').classList.contains('hidden')){ drawLogoPicker(); }
+  updatePickedUi();
   document.getElementById('display-settings-rows').innerHTML = DISPLAY_ELEMENTS[screen].map(function(def){
     var c = cfg[def.key];
     var sizeOpts = DISPLAY_SIZES.filter(function(v){ return v <= maxSizeFor(def); }).concat(DISPLAY_SIZES.indexOf(c.size) === -1 ? [c.size] : []).sort(function(a, b){ return a - b; }).map(function(v){
@@ -3721,6 +3804,95 @@ function timerColorsHtml(screen, def, c, off){
     }).join('') +
     (changed ? '<button type="button" data-timer-colors-reset="1" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Colori predefiniti</button>' : '') +
   '</div>';
+}
+function setDisplayBg(hex){
+  if(!isHexColor(hex)) return false;
+  state.displayBg = Object.assign(defaultDisplayBg(), state.displayBg || {});
+  state.displayBg[displaySettingsScreen] = hex.toLowerCase();
+  broadcastState();
+  renderDisplaySettings();
+  return true;
+}
+// Contagocce: colore catturato dal logo (o dallo schermo), da usare come sfondo o per i numeri.
+var pickedColor = null;
+var logoPickerSrc = null;
+function updatePickedUi(){
+  var hex = pickedColor;
+  document.getElementById('picked-swatch').style.background = hex || 'transparent';
+  document.getElementById('picked-hex').textContent = hex ? hex.toUpperCase() : '—';
+  document.getElementById('picked-rgb').textContent = hex ? 'RGB ' + hexToRgb(hex).join(', ') : 'Nessun colore catturato';
+  Array.prototype.forEach.call(document.querySelectorAll('.picked-use'), function(b){ b.disabled = !hex; });
+  var timerBtn = document.querySelector('[data-picked-use="timer"]');
+  timerBtn.textContent = displaySettingsScreen === 'stage' ? 'Usa per i numeri (in tempo)' : 'Usa per i numeri';
+}
+function showHoverColor(hex){
+  document.getElementById('picked-swatch').style.background = hex;
+  document.getElementById('picked-hex').textContent = hex.toUpperCase();
+  document.getElementById('picked-rgb').textContent = 'RGB ' + hexToRgb(hex).join(', ');
+}
+function drawLogoPicker(){
+  if(!state.logo || logoPickerSrc === state.logo) return;
+  var src = state.logo;
+  var img = new Image();
+  img.onload = function(){
+    var canvas = document.getElementById('logo-picker-canvas');
+    var w = img.naturalWidth || 300, h = img.naturalHeight || 150;
+    var scale = Math.min(440 / w, 200 / h, 4);
+    canvas.width = Math.max(1, Math.round(w * scale));
+    canvas.height = Math.max(1, Math.round(h * scale));
+    var ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    logoPickerSrc = src;
+    renderLogoSwatches(ctx, canvas.width, canvas.height);
+  };
+  img.src = src;
+}
+function canvasColorAt(e){
+  var canvas = document.getElementById('logo-picker-canvas');
+  var rect = canvas.getBoundingClientRect();
+  var x = Math.floor((e.clientX - rect.left) * canvas.width / rect.width);
+  var y = Math.floor((e.clientY - rect.top) * canvas.height / rect.height);
+  if(x < 0 || y < 0 || x >= canvas.width || y >= canvas.height) return null;
+  try{
+    var d = canvas.getContext('2d', { willReadFrequently: true }).getImageData(x, y, 1, 1).data;
+    if(d[3] < 20) return null; // punto trasparente: nessun colore
+    return rgbToHex(d[0], d[1], d[2]);
+  }catch(err){ return null; }
+}
+// Colori principali del logo: pixel raggruppati per tinta simile, i più presenti per primi.
+function renderLogoSwatches(ctx, w, h){
+  var box = document.getElementById('logo-picker-swatches');
+  var data;
+  try{ data = ctx.getImageData(0, 0, w, h).data; }catch(err){ box.innerHTML = ''; return; }
+  var buckets = {};
+  var step = Math.max(1, Math.floor(Math.sqrt(w * h / 20000)));
+  for(var y = 0; y < h; y += step){
+    for(var x = 0; x < w; x += step){
+      var i = (y * w + x) * 4;
+      if(data[i+3] < 128) continue;
+      var key = (data[i] >> 4) + ',' + (data[i+1] >> 4) + ',' + (data[i+2] >> 4);
+      var b = buckets[key] || (buckets[key] = { n: 0, r: 0, g: 0, b: 0 });
+      b.n++; b.r += data[i]; b.g += data[i+1]; b.b += data[i+2];
+    }
+  }
+  var list = Object.keys(buckets).map(function(k){ var b = buckets[k]; return { n: b.n, hex: rgbToHex(Math.round(b.r/b.n), Math.round(b.g/b.n), Math.round(b.b/b.n)) }; });
+  list.sort(function(a, b){ return b.n - a.n; });
+  var total = list.reduce(function(sum, c){ return sum + c.n; }, 0);
+  var picked = [];
+  list.forEach(function(c){
+    if(picked.length >= 8 || c.n < total * 0.01) return; // sfumature dei bordi: troppo poche
+    var rgb = hexToRgb(c.hex);
+    var near = picked.some(function(p){ var q = hexToRgb(p); return Math.abs(q[0]-rgb[0]) + Math.abs(q[1]-rgb[1]) + Math.abs(q[2]-rgb[2]) < 60; });
+    if(!near){ picked.push(c.hex); }
+  });
+  box.innerHTML = picked.map(function(hex){
+    return '<button type="button" data-swatch="' + hex + '" title="' + hex.toUpperCase() + '" aria-label="Colore del logo ' + hex.toUpperCase() + '" class="w-7 h-7 rounded border border-gray-300 hover:scale-110 transition-transform" style="background:' + hex + '"></button>';
+  }).join('');
+}
+function pickColor(hex){
+  pickedColor = hex.toLowerCase();
+  updatePickedUi();
 }
 function onDisplaySettingChange(e){
   var el = e.target.closest('[data-display-key]');
@@ -4241,6 +4413,51 @@ function wireEvents(){
     if(e.target.id === 'settings-modal'){ closeSettingsModal(); }
   });
   document.getElementById('display-settings-rows').addEventListener('change', onDisplaySettingChange);
+  document.getElementById('display-bg-input').addEventListener('change', function(e){ setDisplayBg(e.target.value); });
+  document.getElementById('display-bg-hex').addEventListener('change', function(e){
+    var v = e.target.value.trim();
+    if(v && v.charAt(0) !== '#'){ v = '#' + v; }
+    if(/^#[0-9a-f]{3}$/i.test(v)){ v = '#' + v.charAt(1) + v.charAt(1) + v.charAt(2) + v.charAt(2) + v.charAt(3) + v.charAt(3); }
+    if(!setDisplayBg(v)){ toast('Codice colore non valido: usa il formato #RRGGBB (es. #1A2B3C).', 'error'); renderDisplaySettings(); }
+  });
+  document.getElementById('display-bg-reset').addEventListener('click', function(){ setDisplayBg('#000000'); });
+  document.getElementById('logo-picker-toggle').addEventListener('click', function(){
+    var panel = document.getElementById('logo-picker');
+    var open = panel.classList.toggle('hidden') === false;
+    if(open){ drawLogoPicker(); }
+  });
+  var pickerCanvas = document.getElementById('logo-picker-canvas');
+  pickerCanvas.addEventListener('mousemove', function(e){ var hex = canvasColorAt(e); if(hex){ showHoverColor(hex); } else { updatePickedUi(); } });
+  pickerCanvas.addEventListener('mouseleave', updatePickedUi);
+  pickerCanvas.addEventListener('click', function(e){ var hex = canvasColorAt(e); if(hex){ pickColor(hex); } });
+  document.getElementById('logo-picker-swatches').addEventListener('click', function(e){
+    var b = e.target.closest('[data-swatch]');
+    if(b){ pickColor(b.dataset.swatch); }
+  });
+  // Contagocce di sistema (Chrome, Edge e programma per Windows): prende un colore da qualsiasi punto dello schermo.
+  if(window.EyeDropper){
+    var eyeBtn = document.getElementById('screen-eyedropper-btn');
+    eyeBtn.classList.remove('hidden');
+    eyeBtn.addEventListener('click', function(){
+      new window.EyeDropper().open().then(function(res){ if(res && isHexColor(res.sRGBHex)){ pickColor(res.sRGBHex); } }).catch(function(){});
+    });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('.picked-use'), function(btn){
+    btn.addEventListener('click', function(){
+      if(!pickedColor) return;
+      var use = btn.dataset.pickedUse;
+      if(use === 'bg'){ setDisplayBg(pickedColor); toast('Sfondo ' + (displaySettingsScreen === 'stage' ? 'dello Stage' : 'del Countdown') + ': ' + pickedColor.toUpperCase() + '.', 'success'); }
+      else if(use === 'timer'){
+        state.display[displaySettingsScreen].timer.colors.normal = pickedColor;
+        broadcastState();
+        renderDisplaySettings();
+        toast('Numeri del timer: ' + pickedColor.toUpperCase() + '.', 'success');
+      } else {
+        var text = pickedColor.toUpperCase() + ' · RGB ' + hexToRgb(pickedColor).join(', ');
+        (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(function(){ toast('Copiato: ' + text, 'success'); }, function(){ toast(text, 'info'); });
+      }
+    });
+  });
   document.getElementById('display-settings-rows').addEventListener('click', function(e){
     if(!e.target.closest('[data-timer-colors-reset]')) return;
     var screen = displaySettingsScreen;
@@ -4253,6 +4470,8 @@ function wireEvents(){
   });
   document.getElementById('display-reset-btn').addEventListener('click', function(){
     state.display[displaySettingsScreen] = defaultDisplay()[displaySettingsScreen];
+    state.displayBg = Object.assign(defaultDisplayBg(), state.displayBg || {});
+    state.displayBg[displaySettingsScreen] = '#000000';
     broadcastState();
     renderDisplaySettings();
     toast('Display ripristinato.', 'success');
@@ -4330,7 +4549,8 @@ function wireEvents(){
       // con trasparenza), così resta nitido anche ingrandito sullo Stage. Se il
       // browser non sa creare WebP e il file viene troppo pesante, si scende a 640px PNG.
       if(file.type === 'image/svg+xml' && dataUrl.length < 100000){ return dataUrl; }
-      return downscaleDataURL(dataUrl, 1024, 'image/webp', 0.9).then(function(small){
+      // Qualità 1 = WebP senza perdita: i colori restano esatti per il contagocce.
+      return downscaleDataURL(dataUrl, 1024, 'image/webp', 1).then(function(small){
         return small.length > 700000 ? downscaleDataURL(dataUrl, 640, 'image/png') : small;
       });
     }).then(function(dataUrl){
