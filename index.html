@@ -73,12 +73,12 @@
   .disp-title-lg { font-size: calc(var(--s) * clamp(1.25rem, min(4vw, 6vh), 4.5rem)); color: rgba(255,255,255,.85); font-weight: 600; }
   .disp-status { font-size: calc(var(--s) * clamp(0.85rem, min(2vw, 3.2vh), 2.25rem)); font-weight: 700; letter-spacing: .08em; color: rgba(255,255,255,.65); }
   #countdown-status { color: #E8A33D; }
-  #countdown-status.disp-late { color: #ef4444; }
+  #countdown-status.disp-late { color: #ef4444 !important; }
   .next-late, .next-early { white-space: nowrap; }
   .next-late { color: #f87171; font-weight: 600; }
   .next-early { color: #34d399; font-weight: 600; }
-  #countdown-status.disp-started { color: #34d399; }
-  .disp-status.disp-paused { color: #0b0b0b; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
+  #countdown-status.disp-started { color: #34d399 !important; }
+  .disp-status.disp-paused { color: #0b0b0b !important; background: #fcd34d; padding: .1em .6em; border-radius: .35em; }
   .disp-topic { font-size: calc(var(--s) * clamp(1rem, min(3vw, 4.5vh), 3.5rem)); font-weight: 500; line-height: 1.15; color: rgba(255,255,255,.75); max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
   .disp-name { font-size: calc(var(--s) * var(--fit) * clamp(1.5rem, min(6vw, 9vh), 7.5rem)); font-weight: 600; line-height: 1.1; max-width: 94vw; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
   .disp-timer { --chw: 3.1; font-size: min(calc(var(--s) * var(--fit) * min(30vw, 40vh)), calc(94vw / var(--chw))); font-weight: 600; line-height: 1; white-space: nowrap; font-variant-numeric: tabular-nums; }
@@ -1118,26 +1118,26 @@ function defaultState(){
 var DISPLAY_ELEMENTS = {
   stage: [
     { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
-    { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
-    { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
-    { key: 'status', label: 'Stato (in corso, in pausa)', show: true, pos: 'center' },
+    { key: 'clock', label: 'Orologio', text: true, show: true, pos: 'tr' },
+    { key: 'title', label: 'Titolo evento', text: true, show: true, pos: 'center' },
+    { key: 'status', label: 'Stato (in corso, in pausa)', text: true, show: true, pos: 'center' },
     { key: 'message', label: 'Messaggio al relatore', show: true, pos: 'center', big: true },
-    { key: 'name', label: 'Nome relatore', show: true, pos: 'center', big: true },
-    { key: 'topic', label: 'Titolo intervento', show: true, pos: 'center', big: true },
+    { key: 'name', label: 'Nome relatore', text: true, show: true, pos: 'center', big: true },
+    { key: 'topic', label: 'Titolo intervento', text: true, show: true, pos: 'center', big: true },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true,
       colors: { normal: '#34d399', warn: '#fde047', over: '#ef4444' } },
     { key: 'progress', label: 'Barra di avanzamento', show: false, pos: 'center', big: true },
-    { key: 'next', label: 'Prossimo relatore', show: true, pos: 'bottom' }
+    { key: 'next', label: 'Prossimo relatore', text: true, show: true, pos: 'bottom' }
   ],
   countdown: [
     { key: 'logo', label: 'Logo', show: true, pos: 'tl', maxSize: 600 },
-    { key: 'clock', label: 'Orologio', show: true, pos: 'tr' },
-    { key: 'title', label: 'Titolo evento', show: true, pos: 'center' },
-    { key: 'status', label: 'Scritta "Mancano"', show: true, pos: 'center' },
+    { key: 'clock', label: 'Orologio', text: true, show: true, pos: 'tr' },
+    { key: 'title', label: 'Titolo evento', text: true, show: true, pos: 'center' },
+    { key: 'status', label: 'Scritta "Mancano"', text: true, show: true, pos: 'center' },
     { key: 'timer', label: 'Timer', show: true, pos: 'center', big: true,
       colors: { normal: '#E8A33D', warn: '#fde047', over: '#ef4444' } },
-    { key: 'target', label: 'Orario di inizio', show: true, pos: 'center' },
-    { key: 'finish', label: 'Fine prevista (in tempo reale)', show: true, pos: 'center' }
+    { key: 'target', label: 'Orario di inizio', text: true, show: true, pos: 'center' },
+    { key: 'finish', label: 'Fine prevista (in tempo reale)', text: true, show: true, pos: 'center' }
   ]
 };
 // Colori dei numeri del timer: nome del colore e quando si usa, per schermo.
@@ -1245,6 +1245,7 @@ function defaultDisplay(){
     DISPLAY_ELEMENTS[screen].forEach(function(el){
       d[screen][el.key] = { show: el.show, size: 100, pos: el.pos };
       if(el.colors){ d[screen][el.key].colors = Object.assign({}, el.colors); }
+      if(el.text){ d[screen][el.key].color = ''; }
     });
   });
   return d;
@@ -1267,6 +1268,7 @@ function normalizeDisplay(d){
       var size = Number(cfg.size);
       if(size >= 30 && size <= maxSizeFor(el)) dst.size = size;
       if(isValidPosition(el, cfg.pos)) dst.pos = cfg.pos;
+      if(el.text && isHexColor(cfg.color)){ dst.color = cfg.color.toLowerCase(); }
       if(el.colors && cfg.colors){
         Object.keys(el.colors).forEach(function(k){ if(isHexColor(cfg.colors[k])) dst.colors[k] = cfg.colors[k].toLowerCase(); });
       }
@@ -2950,6 +2952,8 @@ function applyDisplayLayout(screen){
     var c = cfg[def.key];
     var visible = c.show && (def.key !== 'logo' || !!state.logo);
     el.style.setProperty('--s', c.size / 100);
+    // Colore scelto per la scritta ('' = automatico, chiaro o scuro secondo lo sfondo).
+    if(def.text){ el.style.color = c.color || ''; }
     el.style.display = visible ? '' : 'none';
     document.getElementById(screen + '-slot-' + c.pos).appendChild(el);
   });
@@ -3892,10 +3896,23 @@ function renderDisplaySettings(){
         escapeHtml(def.label) + '</label>' +
       '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5' + off + '" aria-label="Dimensione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="size">' + sizeOpts + '</select>' +
       '<select class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-40' + off + '" aria-label="Posizione ' + escapeHtml(def.label) + '" data-display-key="' + def.key + '" data-display-field="pos">' + posOpts + '</select>' +
+      (def.text ? textColorHtml(def, c, off) : '') +
       (def.colors ? timerColorsHtml(screen, def, c, off) : '') +
       (def.key === 'logo' && !state.logo ? '<p class="w-full text-[11px] text-gray-400">Nessun logo caricato: carica un logo qui sopra per mostrarlo.</p>' : '') +
     '</div>';
   }).join('');
+}
+function textColorHtml(def, c, off){
+  var auto = !c.color;
+  return '<div class="w-full flex flex-wrap items-center gap-x-3 gap-y-1.5 pl-6' + off + '">' +
+    '<label class="inline-flex items-center gap-1.5 text-xs text-gray-700 cursor-pointer">' +
+      '<span class="text-[11px] text-gray-500">Colore:</span>' +
+      '<input type="color" value="' + (c.color || '#ffffff') + '" data-display-key="' + def.key + '" data-display-field="textcolor" aria-label="Colore ' + escapeHtml(def.label) + '" class="w-7 h-7 p-0 border border-gray-200 rounded cursor-pointer bg-transparent" />' +
+      (auto ? '<span class="text-[11px] text-gray-400">automatico</span>' : '<span class="font-mono-time text-[11px] text-gray-600">' + c.color.toUpperCase() + '</span>') +
+    '</label>' +
+    (auto ? '' : '<button type="button" data-text-color-reset="' + def.key + '" class="text-[11px] font-medium text-gray-400 hover:text-red-600">Automatico</button>') +
+    (pickedColor ? '<button type="button" data-text-color-picked="' + def.key + '" class="inline-flex items-center gap-1 text-[11px] font-medium text-gray-500 hover:text-accent"><span class="w-3 h-3 rounded-sm border border-gray-300" style="background:' + pickedColor + '"></span>Usa il colore catturato</button>' : '') +
+  '</div>';
 }
 function timerColorsHtml(screen, def, c, off){
   var defaults = def.colors;
@@ -4022,7 +4039,7 @@ function renderLogoSwatches(ctx, w, h){
 }
 function pickColor(hex){
   pickedColor = hex.toLowerCase();
-  updatePickedUi();
+  renderDisplaySettings();
 }
 function onDisplaySettingChange(e){
   var el = e.target.closest('[data-display-key]');
@@ -4032,6 +4049,7 @@ function onDisplaySettingChange(e){
   if(field === 'show'){ c.show = el.checked; }
   else if(field === 'size'){ c.size = parseInt(el.value, 10) || 100; }
   else if(field === 'color'){ if(isHexColor(el.value)){ c.colors[el.dataset.color] = el.value.toLowerCase(); } }
+  else if(field === 'textcolor'){ if(isHexColor(el.value)){ c.color = el.value.toLowerCase(); } }
   else { c.pos = el.value; }
   broadcastState();
   renderDisplaySettings();
@@ -4625,6 +4643,15 @@ function wireEvents(){
     });
   });
   document.getElementById('display-settings-rows').addEventListener('click', function(e){
+    var tcReset = e.target.closest('[data-text-color-reset]');
+    var tcPicked = e.target.closest('[data-text-color-picked]');
+    if(tcReset || tcPicked){
+      var tc = state.display[displaySettingsScreen][(tcReset || tcPicked).dataset[tcReset ? 'textColorReset' : 'textColorPicked']];
+      tc.color = tcReset ? '' : pickedColor;
+      broadcastState();
+      renderDisplaySettings();
+      return;
+    }
     if(!e.target.closest('[data-timer-colors-reset]')) return;
     var screen = displaySettingsScreen;
     state.display[screen].timer.colors = Object.assign({}, defaultDisplay()[screen].timer.colors);
