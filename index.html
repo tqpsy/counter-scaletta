@@ -635,7 +635,7 @@
           <li>Carica la scaletta (PDF o foto) oppure aggiungi le righe a mano. Durata, inizio e fine di ogni riga si possono modificare: le righe successive si spostano, quelle prima restano come sono.</li>
           <li>Play (o la barra spaziatrice) avvia l'intervento; alla prima partenza gli orari della scaletta si allineano all'ora reale. I blocchi "Fisso" a zero passano da soli al successivo, in pausa.</li>
           <li>Con -1/+1/+5 min o Modifica correggi al volo il tempo dell'intervento in onda. Annulla, Ripeti e Ripristina iniziale rimediano agli errori.</li>
-          <li>"Auto-Balance" e "Adatta" tolgono tempo ai blocchi "Relatore" rimasti (intervento in corso compreso) in proporzione alla loro durata, con un'anteprima da confermare. I blocchi "Fisso" restano invariati.</li>
+          <li>"Auto-Balance" e "Adatta" tolgono tempo ai blocchi "Relatore" rimasti (intervento in corso compreso) in proporzione alla loro durata, con un'anteprima da confermare: togliendo la spunta a un relatore lo si esclude e il taglio si ridivide tra gli altri. I blocchi "Fisso" restano invariati.</li>
           <li>Stage e Countdown si aggiornano da soli su questo PC, anche senza internet. Per altri PC, telefoni o proiettori usa "Schermi in rete" (icona Wi-Fi in alto), che richiede internet.</li>
           <li>Scaletta, logo e chiave API restano salvati solo su questo dispositivo.</li>
         </ul>
@@ -2238,10 +2238,12 @@ function selectCurrent(idx){
 // proporzione alla durata prevista di ciascuno (chi ha 30 min perde il doppio di
 // chi ne ha 15), a minuti interi. Ognuno conserva almeno MIN_ITEM_SECONDS di tempo
 // rimanente: se un intervento arriva al minimo, la sua parte va agli altri.
-// I blocchi "fisso" non si toccano mai.
-function planRecovery(seconds){
-  var plan = { changes: [], applied: 0 };
-  if(seconds <= 0.5) return plan;
+// I blocchi "fisso" non si toccano mai, e nemmeno i relatori esclusi a mano
+// (excluded: id da lasciare invariati). plan.candidates elenca tutti i relatori
+// che si potrebbero accorciare, esclusi compresi, per la finestra di conferma.
+function planRecovery(seconds, excluded){
+  var plan = { changes: [], applied: 0, candidates: [] };
+  excluded = excluded || {};
   var needed = Math.ceil((seconds - 0.5) / 60);
   var minMinutes = MIN_ITEM_SECONDS / 60;
   var targets = [];
@@ -2252,8 +2254,10 @@ function planRecovery(seconds){
     else if(idx > state.currentIndex){ left = it.duration; }
     else return;
     var cap = Math.max(0, Math.floor(left - minMinutes));
-    if(cap > 0 && it.duration > 0){ targets.push({ idx: idx, weight: it.duration, cap: cap, share: 0 }); }
+    plan.candidates.push({ id: it.id, idx: idx });
+    if(cap > 0 && it.duration > 0 && !excluded[it.id]){ targets.push({ idx: idx, weight: it.duration, cap: cap, share: 0 }); }
   });
+  if(seconds <= 0.5) return plan;
   var capTotal = targets.reduce(function(t, x){ return t + x.cap; }, 0);
   needed = Math.min(needed, capTotal);
   // Quote proporzionali alla durata: chi supera il proprio massimo si ferma lì
@@ -2296,26 +2300,50 @@ function applyRecovery(plan){
 }
 
 // Finestra di conferma: mostra cosa cambierà prima di toccare la scaletta.
+// Ogni relatore ha una spunta: togliendola resta com'è e il taglio si ridivide
+// tra gli altri. Le esclusioni valgono per tutta la sessione.
 var pendingRecovery = null;
+var recoverExcluded = {};
 function openRecoverModal(opts){
   pendingRecovery = opts;
   document.getElementById('recover-title').textContent = opts.title;
   document.getElementById('recover-intro').textContent = opts.intro;
-  document.getElementById('recover-list').innerHTML = opts.plan.changes.map(function(c){
-    var it = state.schedule[c.idx];
-    var tag = c.idx === state.currentIndex ? ' <span class="text-xs font-semibold text-accent">in corso</span>' : '';
-    return '<li class="flex items-center justify-between gap-3 px-3 py-2">' +
-      '<span class="min-w-0 truncate text-gray-900">' + escapeHtml(itemLabel(it)) + tag + '</span>' +
-      '<span class="shrink-0 tabular-nums text-gray-500">' + durationLabel(c.from) + ' \u2192 <span class="font-semibold text-gray-900">' + durationLabel(c.to) + '</span> <span class="text-red-600">\u2212' + c.cut + '\u00a0min</span></span>' +
-    '</li>';
-  }).join('');
-  var partialEl = document.getElementById('recover-partial');
-  var missing = opts.target - opts.plan.applied;
-  partialEl.classList.toggle('hidden', missing < 1);
-  partialEl.textContent = missing >= 1 ? 'Recupero parziale: mancano ancora ' + formatSecondsSigned(missing) + ', i blocchi "relatore" non bastano.' : '';
-  document.getElementById('recover-finish').textContent = 'Fine stimata dopo la modifica: ore ' + minutesToHHMM(computeLiveFinishMin() - opts.plan.applied / 60) + '.';
+  renderRecoverModal();
   document.getElementById('recover-modal').classList.remove('hidden');
   document.getElementById('recover-confirm-btn').focus();
+}
+function renderRecoverModal(){
+  var opts = pendingRecovery;
+  if(!opts) return;
+  var plan = opts.plan = planRecovery(opts.target, recoverExcluded);
+  var cutById = {};
+  plan.changes.forEach(function(c){ cutById[c.id] = c; });
+  document.getElementById('recover-list').innerHTML = plan.candidates.map(function(c){
+    var it = state.schedule[c.idx];
+    var on = !recoverExcluded[c.id];
+    var ch = cutById[c.id];
+    var tag = c.idx === state.currentIndex ? ' <span class="text-xs font-semibold text-accent">in corso</span>' : '';
+    var right = !on ? '<span class="text-gray-400">' + durationLabel(it.duration) + ' · escluso</span>'
+      : ch ? durationLabel(ch.from) + ' → <span class="font-semibold text-gray-900">' + durationLabel(ch.to) + '</span> <span class="text-red-600">−' + ch.cut + ' min</span>'
+      : durationLabel(it.duration) + ' · invariato';
+    return '<li><label class="flex items-center justify-between gap-3 px-3 py-2 cursor-pointer' + (on ? '' : ' opacity-60') + '">' +
+      '<span class="flex items-center gap-2 min-w-0">' +
+        '<input type="checkbox" class="shrink-0 w-4 h-4" data-recover-id="' + escapeHtml(String(c.id)) + '"' + (on ? ' checked' : '') + ' aria-label="Includi nel ricalcolo">' +
+        '<span class="min-w-0 truncate text-gray-900">' + escapeHtml(itemLabel(it)) + tag + '</span>' +
+      '</span>' +
+      '<span class="shrink-0 tabular-nums text-gray-500">' + right + '</span>' +
+    '</label></li>';
+  }).join('');
+  var partialEl = document.getElementById('recover-partial');
+  var missing = opts.target - plan.applied;
+  partialEl.classList.toggle('hidden', missing < 1);
+  partialEl.textContent = missing >= 1 ? (plan.applied > 0
+    ? 'Recupero parziale: mancano ancora ' + formatSecondsSigned(missing) + ', i relatori inclusi non bastano.'
+    : 'Nessun relatore incluso da accorciare: spunta almeno un relatore.') : '';
+  document.getElementById('recover-finish').textContent = 'Fine stimata dopo la modifica: ore ' + minutesToHHMM(computeLiveFinishMin() - plan.applied / 60) + '.';
+  var btn = document.getElementById('recover-confirm-btn');
+  btn.disabled = plan.applied === 0;
+  btn.classList.toggle('opacity-40', plan.applied === 0);
 }
 function closeRecoverModal(){
   pendingRecovery = null;
@@ -2323,13 +2351,13 @@ function closeRecoverModal(){
 }
 function confirmRecovery(){
   var opts = pendingRecovery;
+  if(!opts || opts.plan.applied === 0) return;
   closeRecoverModal();
-  if(!opts) return;
   applyRecovery(opts.plan);
   if(opts.onApplied) opts.onApplied(opts.plan.applied);
   broadcastState();
   renderDashboard();
-  toast(opts.done, 'success');
+  toast(opts.done(opts.plan.applied), 'success');
 }
 
 function actionAutoBalance(){
@@ -2340,14 +2368,14 @@ function actionAutoBalance(){
   if(overrun < 1 && live >= 60){ delay = overrun = live; }
   if(overrun < 1){ toast(delay >= 1 ? 'Lo sforamento attuale è già stato recuperato.' : 'Nessuno sforamento da recuperare al momento.', 'info'); return; }
   var plan = planRecovery(overrun);
-  if(plan.applied === 0){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
+  if(!plan.candidates.length){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
   openRecoverModal({
     title: 'Auto-Balance',
     intro: 'Ritardo da recuperare: ' + formatSecondsSigned(overrun) + '. Il tempo si toglie ai relatori rimasti (intervento in corso compreso) in proporzione alla loro durata. I blocchi fissi non cambiano.',
     plan: plan,
     target: overrun,
     onApplied: function(applied){ state.recoveredSeconds = (state.recoveredSeconds || 0) + applied; },
-    done: 'Scaletta riequilibrata: recuperati ' + formatSecondsSigned(plan.applied) + '.'
+    done: function(applied){ return 'Scaletta riequilibrata: recuperati ' + formatSecondsSigned(applied) + '.'; }
   });
 }
 function actionApplyEndTime(){
@@ -2368,13 +2396,13 @@ function actionApplyEndTime(){
   var diff = remainingPlanned - availableSec;
   if(diff <= 1){ toast('La scaletta rientra già nel nuovo orario di fine.', 'info'); renderDashboard(); return; }
   var plan = planRecovery(diff);
-  if(plan.applied === 0){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
+  if(!plan.candidates.length){ toast('Niente da accorciare: l\'intervento in corso e quelli "relatore" successivi sono già al minimo.', 'warn'); return; }
   openRecoverModal({
     title: 'Adatta all\'orario di fine',
     intro: 'Per finire alle ' + state.eventEnd + ' bisogna togliere ' + formatSecondsSigned(diff) + '. Il tempo si toglie ai relatori rimasti (intervento in corso compreso) in proporzione alla loro durata. I blocchi fissi non cambiano.',
     plan: plan,
     target: diff,
-    done: 'Scaletta adattata al nuovo orario di fine (' + state.eventEnd + ').'
+    done: function(){ return 'Scaletta adattata al nuovo orario di fine (' + state.eventEnd + ').'; }
   });
 }
 
@@ -4845,6 +4873,12 @@ function wireEvents(){
   document.getElementById('apply-endtime-btn').addEventListener('click', actionApplyEndTime);
   document.getElementById('recover-confirm-btn').addEventListener('click', confirmRecovery);
   document.getElementById('recover-cancel-btn').addEventListener('click', closeRecoverModal);
+  document.getElementById('recover-list').addEventListener('change', function(e){
+    var id = e.target && e.target.getAttribute('data-recover-id');
+    if(!id) return;
+    if(e.target.checked){ delete recoverExcluded[id]; } else { recoverExcluded[id] = true; }
+    renderRecoverModal();
+  });
   document.getElementById('recover-modal').addEventListener('click', function(e){ if(e.target === this) closeRecoverModal(); });
   document.addEventListener('keydown', function(e){
     if(document.getElementById('recover-modal').classList.contains('hidden')) return;
